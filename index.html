@@ -5,25 +5,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>食品在庫管理ツール</title>
     <style>
-        :root {
-            --blue: #2563eb;
-            --red: #ef4444;
-            --border: #e5e7eb;
-            --text-main: #1f2937;
-            --text-sub: #6b7280;
-            --bg: #ffffff;
-        }
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+        :root { --blue: #2563eb; --red: #ef4444; --green: #10b981; --border: #e5e7eb; --text-main: #1f2937; --bg: #ffffff; }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
         body { background-color: #f9fafb; color: var(--text-main); }
         .app-container { max-width: 600px; margin: 0 auto; background: var(--bg); min-height: 100vh; display: flex; flex-direction: column; }
         
-        /* 共通ボタンスタイル */
         button { border: none; border-radius: 8px; padding: 12px; font-weight: bold; font-size: 14px; cursor: pointer; color: white; display: flex; align-items: center; justify-content: center; gap: 4px; }
         .btn-blue { background-color: var(--blue); }
         .btn-red { background-color: var(--red); }
+        .btn-green { background-color: var(--green); }
+        .btn-outline { background-color: transparent; border: 1px solid var(--border); color: var(--text-main); }
+
+        .main-nav { display: flex; gap: 8px; padding: 16px; border-bottom: 1px solid var(--border); background: var(--bg); }
+        .main-nav button { flex: 1; padding: 10px; font-size: 13px; }
+
+        .view-section { padding: 16px; display: none; }
+        .active-view { display: block; }
         
-        /* TOP画面 */
-        #list-view { padding: 16px; }
         .action-buttons { display: flex; gap: 12px; margin-bottom: 20px; }
         .action-buttons button:first-child { flex: 1; }
         .action-buttons button:last-child { flex: 2; }
@@ -31,220 +29,171 @@
         .list-header, .list-item { display: flex; align-items: center; padding: 16px 8px; border-bottom: 1px solid var(--border); font-size: 14px; }
         .list-header { font-weight: bold; border-bottom: 2px solid var(--border); background-color: var(--bg); position: sticky; top: 0; }
         .col-name { flex: 2; word-break: break-all; padding-right: 8px; }
-        .col-exp { flex: 1.5; text-align: center; }
-        .col-reg { flex: 1.5; text-align: center; }
-        .col-check { flex: 0.5; text-align: right; display: flex; justify-content: flex-end; }
+        .col-exp, .col-reg { flex: 1.5; text-align: center; }
+        .col-check { flex: 0.5; text-align: right; }
         
         input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--blue); }
         
-        /* 登録画面 */
-        #register-view { padding: 16px; display: none; }
-        .header-nav { margin-bottom: 24px; }
         .form-group { margin-bottom: 20px; }
         .form-group label { display: block; margin-bottom: 8px; font-weight: bold; font-size: 14px; }
         .form-group input { width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 16px; }
-        .btn-submit { width: 100%; margin-top: 16px; padding: 16px; font-size: 16px; }
+        
+        /* 買い物リスト用 */
+        .shopping-item { display: flex; justify-content: space-between; align-items: center; padding: 16px 8px; border-bottom: 1px solid var(--border); font-size: 16px; }
+        .btn-delete-small { background-color: transparent; color: var(--red); font-size: 18px; padding: 8px; }
     </style>
 </head>
 <body>
 
 <div class="app-container">
-    <!-- TOP画面（リスト表示） -->
-    <div id="list-view">
+    <div class="main-nav">
+        <button class="btn-outline" id="nav-list" onclick="toggleView('list-view')">在庫一覧</button>
+        <button class="btn-outline" id="nav-shopping" onclick="toggleView('shopping-view')">買い物リスト</button>
+    </div>
+
+    <!-- 在庫一覧画面 -->
+    <div id="list-view" class="view-section active-view">
         <div class="action-buttons">
             <button class="btn-blue" onclick="toggleView('register-view')">＋ 登録</button>
-            <button class="btn-red" onclick="deleteSelected()">🗑 チェックした食品を削除</button>
+            <button class="btn-red" onclick="deleteSelectedInventory()">🗑 選択削除</button>
         </div>
-        
         <div class="list-header">
             <div class="col-name">品名</div>
             <div class="col-exp">賞味期限</div>
             <div class="col-reg">登録日</div>
             <div class="col-check"></div>
         </div>
-        <div id="item-list">
-            <!-- JavaScriptでリストを生成 -->
-        </div>
+        <div id="item-list"></div>
+    </div>
+
+    <!-- 買い物リスト画面 -->
+    <div id="shopping-view" class="view-section">
+        <p style="margin-bottom: 16px; font-size: 13px; color: #6b7280;">※在庫にない履歴データを表示しています。削除すると履歴からも消去されます。</p>
+        <div id="shopping-list-container"></div>
     </div>
 
     <!-- 登録画面 -->
-    <div id="register-view">
-        <div class="header-nav">
-            <button class="btn-blue" style="width: auto; padding: 8px 16px;" onclick="toggleView('list-view')">＜ 戻る</button>
-        </div>
-        
+    <div id="register-view" class="view-section">
+        <button class="btn-outline" style="margin-bottom: 24px; width: auto; padding: 8px 16px;" onclick="toggleView('list-view')">＜ 戻る</button>
         <div class="form-group">
-            <label for="input-name">品名</label>
-            <!-- list属性を追加し、datalistと紐付け。autocomplete="off"で余計なOS履歴を抑制 -->
+            <label>品名</label>
             <input type="text" id="input-name" placeholder="例: 牛乳" list="name-history" autocomplete="off">
-            <datalist id="name-history">
-                <!-- JavaScriptで履歴を生成 -->
-            </datalist>
+            <datalist id="name-history"></datalist>
         </div>
         <div class="form-group">
-            <label for="input-exp">賞味期限（任意）</label>
+            <label>賞味期限（任意）</label>
             <input type="date" id="input-exp">
         </div>
-        
-        <button class="btn-blue btn-submit" onclick="registerItem()">登録する</button>
+        <button class="btn-blue" style="width: 100%; padding: 16px;" onclick="registerItem()">登録する</button>
     </div>
 </div>
 
 <script>
-    // ローカルストレージキー
     const STORAGE_KEY = 'food_inventory_db';
-    const HISTORY_KEY = 'food_name_history'; // 品名履歴用のキーを追加
+    const HISTORY_KEY = 'food_name_history';
 
-    // --- データの読み書き関数 ---
-    function loadData() {
-        const data = localStorage.getItem(STORAGE_KEY);
-        return data ? JSON.parse(data) : [];
-    }
+    function loadData() { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); }
+    function saveData(data) { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }
+    function loadHistory() { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); }
+    function saveHistory(data) { localStorage.setItem(HISTORY_KEY, JSON.stringify(data)); }
 
-    function saveData(data) {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-    }
-
-    function loadNameHistory() {
-        const data = localStorage.getItem(HISTORY_KEY);
-        return data ? JSON.parse(data) : [];
-    }
-
-    // 品名を履歴に保存（重複なし）
-    function saveNameHistory(name) {
-        let history = loadNameHistory();
-        if (!history.includes(name)) {
-            history.push(name);
-            localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
-            updateDatalist(); // 履歴リストを更新
-        }
-    }
-
-    // 今日の日付を取得
-    function getTodayString() {
-        const today = new Date();
-        const y = today.getFullYear();
-        const m = String(today.getMonth() + 1).padStart(2, '0');
-        const d = String(today.getDate()).padStart(2, '0');
-        return `${y}/${m}/${d}`;
-    }
-
-    // 画面の切り替え
     function toggleView(viewId) {
-        document.getElementById('list-view').style.display = viewId === 'list-view' ? 'block' : 'none';
-        document.getElementById('register-view').style.display = viewId === 'register-view' ? 'block' : 'none';
-        if (viewId === 'list-view') renderList();
-    }
-
-    // 履歴データからdatalist（入力候補）を生成
-    function updateDatalist() {
-        const datalist = document.getElementById('name-history');
-        datalist.innerHTML = '';
-        const history = loadNameHistory();
+        document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active-view'));
+        document.getElementById(viewId).classList.add('active-view');
         
-        // 五十音順などで見やすくソート
-        history.sort();
+        document.getElementById('nav-list').style.backgroundColor = viewId === 'list-view' ? '#e5e7eb' : 'transparent';
+        document.getElementById('nav-shopping').style.backgroundColor = viewId === 'shopping-view' ? '#e5e7eb' : 'transparent';
 
-        history.forEach(name => {
-            const option = document.createElement('option');
-            option.value = name;
-            datalist.appendChild(option);
-        });
+        if (viewId === 'list-view') renderInventory();
+        if (viewId === 'shopping-view') renderShoppingList();
     }
 
-    // リストの描画とソート
-    function renderList() {
-        const listContainer = document.getElementById('item-list');
-        listContainer.innerHTML = '';
-        const items = loadData();
-
-        items.sort((a, b) => {
-            const expA = a.expDate || '9999/99/99';
-            const expB = b.expDate || '9999/99/99';
+    function renderInventory() {
+        const container = document.getElementById('item-list');
+        const items = loadData().sort((a, b) => {
+            const expA = a.expDate || '9999/99/99', expB = b.expDate || '9999/99/99';
             if (expA !== expB) return expA.localeCompare(expB);
-            
             if (a.regDate !== b.regDate) return a.regDate.localeCompare(b.regDate);
-            
             return a.name.localeCompare(b.name);
         });
 
-        items.forEach(item => {
-            const div = document.createElement('div');
-            div.className = 'list-item';
-            
-            const displayExpDate = item.expDate ? item.expDate : 'なし';
-            
-            div.innerHTML = `
+        container.innerHTML = items.map(item => `
+            <div class="list-item">
                 <div class="col-name">${escapeHTML(item.name)}</div>
-                <div class="col-exp">${displayExpDate}</div>
+                <div class="col-exp">${item.expDate || 'なし'}</div>
                 <div class="col-reg">${item.regDate}</div>
-                <div class="col-check">
-                    <input type="checkbox" class="item-checkbox" value="${item.id}">
-                </div>
-            `;
-            listContainer.appendChild(div);
-        });
+                <div class="col-check"><input type="checkbox" class="inv-checkbox" value="${item.id}"></div>
+            </div>
+        `).join('');
     }
 
-    // 登録処理
-    function registerItem() {
-        const nameInput = document.getElementById('input-name').value.trim();
-        const expInputRaw = document.getElementById('input-exp').value;
-        
-        if (!nameInput) {
-            alert('エラー：品名を入力してください。');
+    function renderShoppingList() {
+        const history = loadHistory();
+        const inventoryNames = loadData().map(i => i.name);
+        // 履歴から在庫にある名前を除外（差分抽出）
+        const shoppingItems = history.filter(name => !inventoryNames.includes(name)).sort();
+
+        const container = document.getElementById('shopping-list-container');
+        if (shoppingItems.length === 0) {
+            container.innerHTML = '<p style="text-align:center; padding: 20px;">買うべきものはありません</p>';
             return;
         }
 
-        const expDateFormatted = expInputRaw ? expInputRaw.replace(/-/g, '/') : '';
-        const newItem = {
-            id: Date.now().toString(),
-            name: nameInput,
-            expDate: expDateFormatted,
-            regDate: getTodayString()
-        };
+        container.innerHTML = shoppingItems.map(name => `
+            <div class="shopping-item">
+                <div>${escapeHTML(name)}</div>
+                <button class="btn-delete-small" onclick="deleteHistoryItem('${escapeHTML(name)}')">🗑</button>
+            </div>
+        `).join('');
+    }
 
-        // 在庫リストへ追加
+    function registerItem() {
+        const name = document.getElementById('input-name').value.trim();
+        const expRaw = document.getElementById('input-exp').value;
+        if (!name) return alert('品名を入力してください。');
+
         const items = loadData();
-        items.push(newItem);
+        items.push({
+            id: Date.now().toString(),
+            name: name,
+            expDate: expRaw ? expRaw.replace(/-/g, '/') : '',
+            regDate: new Date().toLocaleDateString('ja-JP', {year:'numeric', month:'2-digit', day:'2-digit'}).replace(/-/g, '/')
+        });
         saveData(items);
 
-        // 品名を履歴へ追加
-        saveNameHistory(nameInput);
-        
-        alert('食品を登録しました');
+        let history = loadHistory();
+        if (!history.includes(name)) {
+            history.push(name);
+            saveHistory(history);
+            updateDatalist();
+        }
+        alert('登録しました');
     }
 
-    // 削除処理
-    function deleteSelected() {
-        const checkboxes = document.querySelectorAll('.item-checkbox:checked');
-        if (checkboxes.length === 0) {
-            alert('削除する食品が選択されていません。');
-            return;
-        }
-
+    function deleteSelectedInventory() {
+        const checked = Array.from(document.querySelectorAll('.inv-checkbox:checked')).map(cb => cb.value);
+        if (!checked.length) return alert('選択されていません。');
         if (confirm('選択した食品を削除しますか？')) {
-            const idsToDelete = Array.from(checkboxes).map(cb => cb.value);
-            let items = loadData();
-            items = items.filter(item => !idsToDelete.includes(item.id));
-            saveData(items);
-            renderList();
+            saveData(loadData().filter(item => !checked.includes(item.id)));
+            renderInventory();
         }
     }
 
-    // XSS対策用エスケープ
-    function escapeHTML(str) {
-        return str.replace(/[&<>'"]/g, tag => ({
-            '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
-        }[tag]));
+    function deleteHistoryItem(name) {
+        if (confirm(`「${name}」を買い物リストと履歴から完全に削除しますか？\n(次回以降、入力候補にも表示されなくなります)`)) {
+            saveHistory(loadHistory().filter(n => n !== name));
+            renderShoppingList();
+            updateDatalist();
+        }
     }
 
-    // 初期化処理
-    window.onload = () => {
-        renderList();
-        updateDatalist(); // 起動時に履歴リストを読み込む
-    };
-</script>
+    function updateDatalist() {
+        document.getElementById('name-history').innerHTML = loadHistory().sort().map(n => `<option value="${escapeHTML(n)}">`).join('');
+    }
 
+    function escapeHTML(str) { return str.replace(/[&<>'"]/g, tag => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'}[tag])); }
+
+    window.onload = () => { toggleView('list-view'); updateDatalist(); };
+</script>
 </body>
 </html>
