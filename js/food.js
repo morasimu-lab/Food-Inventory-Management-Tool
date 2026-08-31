@@ -31,6 +31,7 @@ function renderFoodList(container) {
             <div class="col-check">消</div>
         </div>
         <div>
+            ${items.length === 0 ? '<div class="empty-message">登録されている食品はありません</div>' : ''}
             ${items.map(item => `
                 <div class="list-item">
                     <div class="col-name" style="flex:2.2;">${escapeHTML(item.name)}</div>
@@ -124,7 +125,7 @@ export function renderFoodShoppingTab(container) {
     container.innerHTML = `
         <p style="margin-bottom: 16px; font-size: 13px; color: #6b7280;">※使い切った食品、または在庫から「🛒」をつけたものが表示されます。</p>
         <div>
-            ${shoppingItems.length === 0 ? '<p style="text-align:center; padding: 20px;">買うべきものはありません</p>' : ''}
+            ${shoppingItems.length === 0 ? '<div class="empty-message">買うべき食品はありません</div>' : ''}
             ${shoppingItems.map(name => `
                 <div class="shopping-item">
                     <div>${escapeHTML(name)}</div>
