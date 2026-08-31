@@ -3,241 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>食品在庫管理ツール</title>
-    <style>
-        :root { --blue: #2563eb; --red: #ef4444; --green: #10b981; --cart: #f59e0b; --border: #e5e7eb; --text-main: #1f2937; --bg: #ffffff; }
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
-        body { background-color: #f9fafb; color: var(--text-main); }
-        .app-container { max-width: 600px; margin: 0 auto; background: var(--bg); min-height: 100vh; display: flex; flex-direction: column; }
-        
-        button { border: none; border-radius: 8px; padding: 12px; font-weight: bold; font-size: 14px; cursor: pointer; color: white; display: flex; align-items: center; justify-content: center; gap: 4px; }
-        .btn-blue { background-color: var(--blue); }
-        .btn-red { background-color: var(--red); }
-        .btn-outline { background-color: transparent; border: 1px solid var(--border); color: var(--text-main); }
-
-        .main-nav { display: flex; gap: 8px; padding: 16px; border-bottom: 1px solid var(--border); background: var(--bg); }
-        .main-nav button { flex: 1; padding: 10px; font-size: 13px; }
-
-        .view-section { padding: 12px; display: none; }
-        .active-view { display: block; }
-        
-        .action-buttons { display: flex; gap: 12px; margin-bottom: 16px; }
-        .action-buttons button:first-child { flex: 1; }
-        .action-buttons button:last-child { flex: 2; }
-        
-        /* 
-          各列の幅の比率（flex）を明示的に固定し、狭い画面でも被らないように調整 
-          合計: 品名(2.2) + 賞味期限(1.6) + 登録日(1.1) + カート(0.5) + 削除(0.5) = 5.9
-        */
-        .list-header, .list-item { display: flex; align-items: center; padding: 12px 2px; border-bottom: 1px solid var(--border); font-size: 13px; }
-        .list-header { font-weight: bold; border-bottom: 2px solid var(--border); background-color: var(--bg); position: sticky; top: 0; font-size: 12px; color: #4b5563; }
-        
-        .col-name { flex: 2.2; word-break: break-all; padding-right: 4px; }
-        .col-exp { flex: 1.6; text-align: center; font-variant-numeric: tabular-nums; }
-        .col-reg { flex: 1.1; text-align: center; font-variant-numeric: tabular-nums; color: #6b7280; }
-        .col-cart { flex: 0.5; display: flex; justify-content: center; }
-        .col-check { flex: 0.5; display: flex; justify-content: center; }
-        
-        input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--blue); }
-        
-        /* カート（トグル）ボタン */
-        .btn-cart { background: transparent; border: none; font-size: 18px; color: var(--cart); padding: 4px; cursor: pointer; transition: 0.2s; }
-        .btn-cart:not(.active) { filter: grayscale(100%); opacity: 0.2; }
-        
-        .form-group { margin-bottom: 20px; }
-        .form-group label { display: block; margin-bottom: 8px; font-weight: bold; font-size: 14px; }
-        .form-group input { width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 16px; }
-        
-        .shopping-item { display: flex; justify-content: space-between; align-items: center; padding: 16px 8px; border-bottom: 1px solid var(--border); font-size: 16px; }
-        .btn-delete-small { background-color: transparent; color: var(--red); font-size: 18px; padding: 8px; margin: -8px; }
-    </style>
+    <title>家庭用在庫管理ツール</title>
+    <link rel="stylesheet" href="./style.css">
 </head>
 <body>
 
 <div class="app-container">
+    <!-- メインナビゲーション（食品 / 日用品 / 買い物リスト） -->
     <div class="main-nav">
-        <button class="btn-outline" id="nav-list" onclick="toggleView('list-view')">在庫一覧</button>
-        <button class="btn-outline" id="nav-shopping" onclick="toggleView('shopping-view')">買い物リスト</button>
+        <button class="btn-outline" id="nav-food" onclick="switchTab('food')">食品</button>
+        <button class="btn-outline" id="nav-goods" onclick="switchTab('goods')">日用品</button>
+        <button class="btn-outline" id="nav-shopping" onclick="switchTab('shopping')">買い物リスト</button>
     </div>
 
-    <!-- 在庫一覧画面 -->
-    <div id="list-view" class="view-section active-view">
-        <div class="action-buttons">
-            <button class="btn-blue" onclick="toggleView('register-view')">＋ 登録</button>
-            <button class="btn-red" onclick="deleteSelectedInventory()">🗑 選択削除</button>
-        </div>
-        <div class="list-header">
-            <div class="col-name">品名</div>
-            <div class="col-exp">賞味期限</div>
-            <div class="col-reg">登録日</div>
-            <div class="col-cart">買</div>
-            <div class="col-check">消</div>
-        </div>
-        <div id="item-list"></div>
-    </div>
+    <!-- 食品タブ -->
+    <div id="tab-food" class="tab-content"></div>
 
-    <!-- 買い物リスト画面 -->
-    <div id="shopping-view" class="view-section">
-        <p style="margin-bottom: 16px; font-size: 13px; color: #6b7280;">※使い切ったもの、または在庫から「🛒」をつけたものが表示されます。</p>
-        <div id="shopping-list-container"></div>
-    </div>
+    <!-- 日用品タブ -->
+    <div id="tab-goods" class="tab-content"></div>
 
-    <!-- 登録画面 -->
-    <div id="register-view" class="view-section">
-        <button class="btn-outline" style="margin-bottom: 24px; width: auto; padding: 8px 16px;" onclick="toggleView('list-view')">＜ 戻る</button>
-        <div class="form-group">
-            <label>品名</label>
-            <input type="text" id="input-name" placeholder="例: 牛乳" list="name-history" autocomplete="off">
-            <datalist id="name-history"></datalist>
-        </div>
-        <div class="form-group">
-            <label>賞味期限（任意）</label>
-            <input type="date" id="input-exp">
-        </div>
-        <button class="btn-blue" style="width: 100%; padding: 16px;" onclick="registerItem()">登録する</button>
-    </div>
+    <!-- 買い物リストタブ -->
+    <div id="tab-shopping" class="tab-content"></div>
 </div>
 
-<script>
-    const STORAGE_KEY = 'food_inventory_db';
-    const HISTORY_KEY = 'food_name_history';
-
-    function loadData() { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); }
-    function saveData(data) { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }
-    function loadHistory() { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); }
-    function saveHistory(data) { localStorage.setItem(HISTORY_KEY, JSON.stringify(data)); }
-
-    function toggleView(viewId) {
-        document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active-value') || el.classList.remove('active-view'));
-        document.getElementById(viewId).classList.add('active-view');
-        
-        document.getElementById('nav-list').style.backgroundColor = viewId === 'list-view' ? '#e5e7eb' : 'transparent';
-        document.getElementById('nav-shopping').style.backgroundColor = viewId === 'shopping-view' ? '#e5e7eb' : 'transparent';
-
-        if (viewId === 'list-view') renderInventory();
-        if (viewId === 'shopping-view') renderShoppingList();
-    }
-
-    function renderInventory() {
-        const container = document.getElementById('item-list');
-        const items = loadData().sort((a, b) => {
-            const expA = a.expDate || '9999/99/99', expB = b.expDate || '9999/99/99';
-            if (expA !== expB) return expA.localeCompare(expB);
-            if (a.regDate !== b.regDate) return a.regDate.localeCompare(b.regDate);
-            return a.name.localeCompare(b.name);
-        });
-
-        container.innerHTML = items.map(item => {
-            // 登録日は「YYYY/MM/DD」から「MM/DD」形式に変換して省スペース化
-            let shortRegDate = item.regDate;
-            if (shortRegDate && shortRegDate.length >= 10) {
-                shortRegDate = shortRegDate.substring(5); // 先頭の「YYYY/」を削る
-            }
-
-            return `
-                <div class="list-item">
-                    <div class="col-name">${escapeHTML(item.name)}</div>
-                    <div class="col-exp">${item.expDate || 'なし'}</div>
-                    <div class="col-reg">${shortRegDate}</div>
-                    <div class="col-cart">
-                        <button class="btn-cart ${item.needBuy ? 'active' : ''}" onclick="toggleCart('${item.id}')">🛒</button>
-                    </div>
-                    <div class="col-check"><input type="checkbox" class="inv-checkbox" value="${item.id}"></div>
-                </div>
-            `;
-        }).join('');
-    }
-
-    function toggleCart(id) {
-        const items = loadData();
-        const item = items.find(i => i.id === id);
-        if (item) {
-            item.needBuy = !item.needBuy;
-            saveData(items);
-            renderInventory();
-        }
-    }
-
-    function renderShoppingList() {
-        const history = loadHistory();
-        const inventory = loadData();
-        const inventoryNames = inventory.map(i => i.name);
-        
-        const outOfStock = history.filter(name => !inventoryNames.includes(name));
-        const wantToBuy = inventory.filter(i => i.needBuy).map(i => i.name);
-        const shoppingItems = Array.from(new Set([...outOfStock, ...wantToBuy])).sort();
-
-        const container = document.getElementById('shopping-list-container');
-        if (shoppingItems.length === 0) {
-            container.innerHTML = '<p style="text-align:center; padding: 20px;">買うべきものはありません</p>';
-            return;
-        }
-
-        container.innerHTML = shoppingItems.map(name => `
-            <div class="shopping-item">
-                <div>${escapeHTML(name)}</div>
-                <button class="btn-delete-small" onclick="deleteHistoryItem('${escapeHTML(name)}')">🗑</button>
-            </div>
-        `).join('');
-    }
-
-    function registerItem() {
-        const name = document.getElementById('input-name').value.trim();
-        const expRaw = document.getElementById('input-exp').value;
-        if (!name) return alert('品名を入力してください。');
-
-        let items = loadData();
-        items.forEach(item => {
-            if (item.name === name) item.needBuy = false;
-        });
-
-        items.push({
-            id: Date.now().toString(),
-            name: name,
-            expDate: expRaw ? expRaw.replace(/-/g, '/') : '',
-            regDate: new Date().toLocaleDateString('ja-JP', {year:'numeric', month:'2-digit', day:'2-digit'}).replace(/-/g, '/'),
-            needBuy: false
-        });
-        saveData(items);
-
-        let history = loadHistory();
-        if (!history.includes(name)) {
-            history.push(name);
-            saveHistory(history);
-            updateDatalist();
-        }
-        alert('登録しました');
-    }
-
-    function deleteSelectedInventory() {
-        const checked = Array.from(document.querySelectorAll('.inv-checkbox:checked')).map(cb => cb.value);
-        if (!checked.length) return alert('選択されていません。');
-        if (confirm('選択した食品を削除しますか？')) {
-            saveData(loadData().filter(item => !checked.includes(item.id)));
-            renderInventory();
-        }
-    }
-
-    function deleteHistoryItem(name) {
-        if (confirm(`「${name}」を今後一切買わないものとして、履歴からも完全に削除しますか？`)) {
-            saveHistory(loadHistory().filter(n => n !== name));
-            let items = loadData();
-            items.forEach(item => {
-                if (item.name === name) item.needBuy = false;
-            });
-            saveData(items);
-            renderShoppingList();
-            updateDatalist();
-        }
-    }
-
-    function updateDatalist() {
-        document.getElementById('name-history').innerHTML = loadHistory().sort().map(n => `<option value="${escapeHTML(n)}">`).join('');
-    }
-
-    function escapeHTML(str) { return str.replace(/[&<>'"]/g, tag => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'}[tag])); }
-
-    window.onload = () => { toggleView('list-view'); updateDatalist(); };
-</script>
+<!-- エントリーポイントの読み込み -->
+<script type="module" src="./js/main.js"></script>
 </body>
 </html>
