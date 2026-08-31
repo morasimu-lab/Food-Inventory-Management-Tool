@@ -25,7 +25,7 @@ function renderGoodsList(container) {
             <div class="col-check">消</div>
         </div>
         <div>
-            ${items.length === 0 ? '<p style="text-align:center; padding:20px; color:#6b7280; font-size:13px;">日用品が登録されていません</p>' : ''}
+            ${items.length === 0 ? '<div class="empty-message">登録されている日用品はありません</div>' : ''}
             ${items.map(item => `
                 <div class="list-item">
                     <div class="col-name goods-detail-trigger" data-id="${item.id}" style="cursor:pointer; font-weight:bold; color:var(--blue);">${escapeHTML(item.name)}</div>
@@ -76,7 +76,6 @@ function renderGoodsRegister(container) {
         const subNames = subRaw ? subRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
 
         let items = Storage.load('GOODS_LIST');
-        // 既存同名があればカート状態をオフにするか統合
         items.forEach(i => { if (i.name === name) i.needBuy = false; });
 
         items.push({
@@ -115,7 +114,6 @@ function deleteSelectedGoods() {
     }
 }
 
-// 在庫リストからタップした時の詳細・編集モーダル（商品名は表示のみまたは変更可能）
 function openGoodsDetailModal(id) {
     const items = Storage.load('GOODS_LIST');
     const item = items.find(i => i.id === id);
@@ -180,7 +178,7 @@ export function renderGoodsShoppingTab(container) {
     container.innerHTML = `
         <p style="margin-bottom: 16px; font-size: 13px; color: #6b7280;">※使い切った日用品、または在庫から「🛒」をつけたものが表示されます。</p>
         <div>
-            ${shoppingItems.length === 0 ? '<p style="text-align:center; padding: 20px;">買うべきものはありません</p>' : ''}
+            ${shoppingItems.length === 0 ? '<div class="empty-message">買うべき日用品はありません</div>' : ''}
             ${shoppingItems.map(name => `
                 <div class="shopping-item">
                     <div>${escapeHTML(name)}</div>
