@@ -9,24 +9,19 @@
 <body>
 
 <div class="app-container">
-    <!-- メインナビゲーション（食品 / 日用品 / 買い物リスト） -->
     <div class="main-nav">
-        <button class="btn-outline" id="nav-food" onclick="switchTab('food')">食品</button>
-        <button class="btn-outline" id="nav-goods" onclick="switchTab('goods')">日用品</button>
-        <button class="btn-outline" id="nav-shopping" onclick="switchTab('shopping')">買い物リスト</button>
+        <button class="btn-outline" id="nav-food" onclick="switchTab('food')">食品在庫</button>
+        <button class="btn-outline" id="nav-food-shop" onclick="switchTab('food-shopping')">食品買物</button>
+        <button class="btn-outline" id="nav-goods" onclick="switchTab('goods')">日用品在庫</button>
+        <button class="btn-outline" id="nav-goods-shop" onclick="switchTab('goods-shopping')">日用品買物</button>
     </div>
 
-    <!-- 食品タブ -->
     <div id="tab-food" class="tab-content"></div>
-
-    <!-- 日用品タブ -->
+    <div id="tab-food-shopping" class="tab-content"></div>
     <div id="tab-goods" class="tab-content"></div>
-
-    <!-- 買い物リストタブ -->
-    <div id="tab-shopping" class="tab-content"></div>
+    <div id="tab-goods-shopping" class="tab-content"></div>
 </div>
 
-<!-- エントリーポイントの読み込み -->
 <script type="module" src="./js/main.js"></script>
 </body>
 </html>
