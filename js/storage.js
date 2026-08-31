@@ -1,13 +1,14 @@
 const STORAGE_KEYS = {
     FOOD_LIST: 'app_food_list',
     FOOD_HISTORY: 'app_food_history',
-    GOODS_LIST: 'app_goods_list' // { itemName: ['商品名1', '商品名2'] } のような構造
+    GOODS_LIST: 'app_goods_list',     // 登録されている日用品在庫 [{ id, name, subNames, needBuy }]
+    GOODS_HISTORY: 'app_goods_history' // 日用品の品名履歴 [ 'シャンプー', ... ]
 };
 
 export const Storage = {
     load(key) {
         const data = localStorage.getItem(STORAGE_KEYS[key]);
-        return data ? JSON.parse(data) : (key === 'GOODS_LIST' ? {} : []);
+        return data ? JSON.parse(data) : [];
     },
     save(key, data) {
         localStorage.setItem(STORAGE_KEYS[key], JSON.stringify(data));
