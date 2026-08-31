@@ -1,6 +1,6 @@
 import { Storage, escapeHTML } from './storage.js';
 
-let currentSubView = 'list'; // 'list' or 'register'
+let currentSubView = 'list';
 
 export function renderFoodTab(container) {
     if (currentSubView === 'list') {
@@ -20,24 +20,24 @@ function renderFoodList(container) {
 
     container.innerHTML = `
         <div class="action-buttons">
-            <button class="btn-blue" id="btn-goto-register">＋ 登録</button>
+            <button class="btn-blue" id="btn-goto-food-reg">＋ 登録</button>
             <button class="btn-red" id="btn-delete-food">🗑 選択削除</button>
         </div>
         <div class="list-header">
-            <div class="col-name">品名</div>
-            <div class="col-exp">賞味期限</div>
-            <div class="col-reg">登録日</div>
+            <div class="col-name" style="flex:2.2;">品名</div>
+            <div class="col-sub" style="flex:1.6; text-align:center;">賞味期限</div>
+            <div class="col-sub" style="flex:1.1; text-align:center;">登録日</div>
             <div class="col-cart">買</div>
             <div class="col-check">消</div>
         </div>
-        <div id="food-item-list">
+        <div>
             ${items.map(item => `
                 <div class="list-item">
-                    <div class="col-name">${escapeHTML(item.name)}</div>
-                    <div class="col-exp">${item.expDate || 'なし'}</div>
-                    <div class="col-reg">${item.regDate ? item.regDate.substring(5) : ''}</div>
+                    <div class="col-name" style="flex:2.2;">${escapeHTML(item.name)}</div>
+                    <div class="col-sub" style="flex:1.6; text-align:center;">${item.expDate || 'なし'}</div>
+                    <div class="col-sub" style="flex:1.1; text-align:center;">${item.regDate ? item.regDate.substring(5) : ''}</div>
                     <div class="col-cart">
-                        <button class="btn-cart ${item.needBuy ? 'active' : ''}" data-cart-id="${item.id}">🛒</button>
+                        <button class="btn-cart ${item.needBuy ? 'active' : ''}" data-id="${item.id}">🛒</button>
                     </div>
                     <div class="col-check"><input type="checkbox" class="food-checkbox" value="${item.id}"></div>
                 </div>
@@ -45,11 +45,10 @@ function renderFoodList(container) {
         </div>
     `;
 
-    container.querySelector('#btn-goto-register').onclick = () => { currentSubView = 'register'; renderFoodTab(container); };
+    container.querySelector('#btn-goto-food-reg').onclick = () => { currentSubView = 'register'; renderFoodTab(container); };
     container.querySelector('#btn-delete-food').onclick = deleteSelectedFood;
-
     container.querySelectorAll('.btn-cart').forEach(btn => {
-        btn.onclick = (e) => toggleFoodCart(e.target.getAttribute('data-cart-id'), container);
+        btn.onclick = (e) => toggleFoodCart(e.target.getAttribute('data-id'), container);
     });
 }
 
@@ -59,10 +58,8 @@ function renderFoodRegister(container) {
         <button class="btn-outline" style="margin-bottom: 24px; width: auto; padding: 8px 16px;" id="btn-back-food">＜ 戻る</button>
         <div class="form-group">
             <label>品名</label>
-            <input type="text" id="input-food-name" placeholder="例: 牛乳" list="food-history-list" autocomplete="off">
-            <datalist id="food-history-list">
-                ${history.map(n => `<option value="${escapeHTML(n)}">`).join('')}
-            </datalist>
+            <input type="text" id="input-food-name" placeholder="例: 牛乳" list="food-history" autocomplete="off">
+            <datalist id="food-history">${history.map(n => `<option value="${escapeHTML(n)}">`).join('')}</datalist>
         </div>
         <div class="form-group">
             <label>賞味期限（任意）</label>
@@ -80,8 +77,7 @@ function renderFoodRegister(container) {
         let items = Storage.load('FOOD_LIST');
         items.forEach(i => { if (i.name === name) i.needBuy = false; });
         items.push({
-            id: Date.now().toString(),
-            name,
+            id: Date.now().toString(), name,
             expDate: expRaw ? expRaw.replace(/-/g, '/') : '',
             regDate: new Date().toLocaleDateString('ja-JP', {year:'numeric', month:'2-digit', day:'2-digit'}).replace(/-/g, '/'),
             needBuy: false
@@ -114,4 +110,40 @@ function deleteSelectedFood() {
         Storage.save('FOOD_LIST', Storage.load('FOOD_LIST').filter(item => !checked.includes(item.id)));
         renderFoodTab(document.getElementById('tab-food'));
     }
+}
+
+export function renderFoodShoppingTab(container) {
+    const history = Storage.load('FOOD_HISTORY');
+    const inventory = Storage.load('FOOD_LIST');
+    const inventoryNames = inventory.map(i => i.name);
+    
+    const outOfStock = history.filter(name => !inventoryNames.includes(name));
+    const wantToBuy = inventory.filter(i => i.needBuy).map(i => i.name);
+    const shoppingItems = Array.from(new Set([...outOfStock, ...wantToBuy])).sort();
+
+    container.innerHTML = `
+        <p style="margin-bottom: 16px; font-size: 13px; color: #6b7280;">※使い切った食品、または在庫から「🛒」をつけたものが表示されます。</p>
+        <div>
+            ${shoppingItems.length === 0 ? '<p style="text-align:center; padding: 20px;">買うべきものはありません</p>' : ''}
+            ${shoppingItems.map(name => `
+                <div class="shopping-item">
+                    <div>${escapeHTML(name)}</div>
+                    <button class="btn-delete-small" data-name="${escapeHTML(name)}">🗑</button>
+                </div>
+            `).join('')}
+        </div>
+    `;
+
+    container.querySelectorAll('.btn-delete-small').forEach(btn => {
+        btn.onclick = (e) => {
+            const name = e.target.getAttribute('data-name');
+            if (confirm(`「${name}」を履歴からも完全に削除しますか？`)) {
+                Storage.save('FOOD_HISTORY', Storage.load('FOOD_HISTORY').filter(n => n !== name));
+                let items = Storage.load('FOOD_LIST');
+                items.forEach(item => { if (item.name === name) item.needBuy = false; });
+                Storage.save('FOOD_LIST', items);
+                renderFoodShoppingTab(container);
+            }
+        };
+    });
 }
