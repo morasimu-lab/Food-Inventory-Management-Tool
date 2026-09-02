@@ -11,7 +11,9 @@ export function renderGoodsTab(container) {
 }
 
 function renderGoodsList(container) {
-    const items = Storage.load('GOODS_LIST').sort((a, b) => a.name.localeCompare(b.name));
+    // 確実に配列として読み込む（配列でなければ空配列にする）
+    const rawData = Storage.load('GOODS_LIST');
+    const items = Array.isArray(rawData) ? rawData.sort((a, b) => a.name.localeCompare(b.name)) : [];
 
     container.innerHTML = `
         <div class="action-buttons">
@@ -29,7 +31,7 @@ function renderGoodsList(container) {
             ${items.map(item => `
                 <div class="list-item">
                     <div class="col-name goods-detail-trigger" data-id="${item.id}" style="cursor:pointer; font-weight:bold; color:var(--blue);">${escapeHTML(item.name)}</div>
-                    <div class="col-sub goods-detail-trigger" data-id="${item.id}" style="cursor:pointer;">${escapeHTML(item.subNames.join(', ') || 'なし')}</div>
+                    <div class="col-sub goods-detail-trigger" data-id="${item.id}" style="cursor:pointer;">${escapeHTML(Array.isArray(item.subNames) ? item.subNames.join(', ') : 'なし')}</div>
                     <div class="col-cart">
                         <button class="btn-cart ${item.needBuy ? 'active' : ''}" data-id="${item.id}">🛒</button>
                     </div>
@@ -52,7 +54,9 @@ function renderGoodsList(container) {
 }
 
 function renderGoodsRegister(container) {
-    const history = Storage.load('GOODS_HISTORY').sort();
+    const rawHistory = Storage.load('GOODS_HISTORY');
+    const history = Array.isArray(rawHistory) ? rawHistory.sort() : [];
+    
     container.innerHTML = `
         <button class="btn-outline" style="margin-bottom: 24px; width: auto; padding: 8px 16px;" id="btn-back-goods">＜ 戻る</button>
         <div class="form-group">
@@ -75,7 +79,8 @@ function renderGoodsRegister(container) {
 
         const subNames = subRaw ? subRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
 
-        let items = Storage.load('GOODS_LIST');
+        let rawItems = Storage.load('GOODS_LIST');
+        let items = Array.isArray(rawItems) ? rawItems : [];
         items.forEach(i => { if (i.name === name) i.needBuy = false; });
 
         items.push({
@@ -86,7 +91,8 @@ function renderGoodsRegister(container) {
         });
         Storage.save('GOODS_LIST', items);
 
-        let history = Storage.load('GOODS_HISTORY');
+        let rawHistory = Storage.load('GOODS_HISTORY');
+        let history = Array.isArray(rawHistory) ? rawHistory : [];
         if (!history.includes(name)) {
             history.push(name);
             Storage.save('GOODS_HISTORY', history);
@@ -96,7 +102,8 @@ function renderGoodsRegister(container) {
 }
 
 function toggleGoodsCart(id, container) {
-    let items = Storage.load('GOODS_LIST');
+    let rawItems = Storage.load('GOODS_LIST');
+    let items = Array.isArray(rawItems) ? rawItems : [];
     let item = items.find(i => i.id === id);
     if (item) {
         item.needBuy = !item.needBuy;
@@ -109,13 +116,16 @@ function deleteSelectedGoods() {
     const checked = Array.from(document.querySelectorAll('.goods-checkbox:checked')).map(cb => cb.value);
     if (!checked.length) return alert('選択されていません。');
     if (confirm('選択した日用品を削除しますか？')) {
-        Storage.save('GOODS_LIST', Storage.load('GOODS_LIST').filter(item => !checked.includes(item.id)));
+        let rawItems = Storage.load('GOODS_LIST');
+        let items = Array.isArray(rawItems) ? rawItems : [];
+        Storage.save('GOODS_LIST', items.filter(item => !checked.includes(item.id)));
         renderGoodsTab(document.getElementById('tab-goods'));
     }
 }
 
 function openGoodsDetailModal(id) {
-    const items = Storage.load('GOODS_LIST');
+    let rawItems = Storage.load('GOODS_LIST');
+    let items = Array.isArray(rawItems) ? rawItems : [];
     const item = items.find(i => i.id === id);
     if (!item) return;
 
@@ -131,7 +141,7 @@ function openGoodsDetailModal(id) {
             </div>
             <div class="form-group">
                 <label>登録されている商品名（カンマ区切り）</label>
-                <input type="text" id="modal-goods-sub" value="${escapeHTML(item.subNames.join(', '))}">
+                <input type="text" id="modal-goods-sub" value="${escapeHTML(Array.isArray(item.subNames) ? item.subNames.join(', ') : '')}">
             </div>
             <div style="display:flex; gap:8px; margin-top:20px;">
                 <button class="btn-blue" style="flex:1;" id="modal-save">更新</button>
@@ -167,8 +177,11 @@ function openGoodsDetailModal(id) {
 }
 
 export function renderGoodsShoppingTab(container) {
-    const history = Storage.load('GOODS_HISTORY');
-    const inventory = Storage.load('GOODS_LIST');
+    const rawHistory = Storage.load('GOODS_HISTORY');
+    const history = Array.isArray(rawHistory) ? rawHistory : [];
+
+    const rawInventory = Storage.load('GOODS_LIST');
+    const inventory = Array.isArray(rawInventory) ? rawInventory : [];
     const inventoryNames = inventory.map(i => i.name);
     
     const outOfStock = history.filter(name => !inventoryNames.includes(name));
@@ -192,10 +205,15 @@ export function renderGoodsShoppingTab(container) {
         btn.onclick = (e) => {
             const name = e.target.getAttribute('data-name');
             if (confirm(`「${name}」を履歴からも完全に削除しますか？`)) {
-                Storage.save('GOODS_HISTORY', Storage.load('GOODS_HISTORY').filter(n => n !== name));
-                let items = Storage.load('GOODS_LIST');
+                let rawHistory = Storage.load('GOODS_HISTORY');
+                let history = Array.isArray(rawHistory) ? rawHistory : [];
+                Storage.save('GOODS_HISTORY', history.filter(n => n !== name));
+
+                let rawItems = Storage.load('GOODS_LIST');
+                let items = Array.isArray(rawItems) ? rawItems : [];
                 items.forEach(item => { if (item.name === name) item.needBuy = false; });
                 Storage.save('GOODS_LIST', items);
+                
                 renderGoodsShoppingTab(container);
             }
         };
