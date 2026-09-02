@@ -94,6 +94,7 @@ function renderGoodsRegister(container) {
 
         const newSubs = subRaw ? subRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
 
+        // 1. 履歴に品目と商品名/銘柄を追加
         let historyObj = historyMap;
         if (!historyObj[name]) historyObj[name] = [];
         
@@ -106,18 +107,25 @@ function renderGoodsRegister(container) {
         const newHistoryArray = Object.keys(historyObj).map(n => ({ name: n, subs: historyObj[n] }));
         Storage.save('GOODS_HISTORY', newHistoryArray);
 
+        // 2. 在庫リストへの登録 / カートON（needBuy）の解除処理
         let rawItems = Storage.load('GOODS_LIST');
         let items = Array.isArray(rawItems) ? rawItems : [];
         let targetItem = items.find(i => i.name === name);
-        if (!targetItem) {
+        
+        if (targetItem) {
+            // すでに在庫にある場合はカートONを解除する
+            targetItem.needBuy = false;
+        } else {
+            // 在庫にない場合は新しく追加する
             items.push({
                 id: Date.now().toString(),
                 name,
                 needBuy: false
             });
-            Storage.save('GOODS_LIST', items);
         }
+        Storage.save('GOODS_LIST', items);
 
+        // 3. 登録完了後の確認ダイアログ
         if (confirm('登録しました。続けて商品を登録しますか？')) {
             document.getElementById('input-goods-name').value = '';
             document.getElementById('input-goods-sub').value = '';
@@ -172,7 +180,6 @@ function deleteSelectedGoods() {
     }
 }
 
-// 商品名（銘柄等）を個別に編集するモーダル（空欄の場合は削除）
 function openSubNameEditModal(targetName, targetSubName, container) {
     const modalBg = document.createElement('div');
     modalBg.style.cssText = "position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; z-index:1000;";
@@ -206,10 +213,8 @@ function openSubNameEditModal(targetName, targetSubName, container) {
 
         if (historyObj[targetName]) {
             if (newSubName === '') {
-                // 空欄の場合は該当の銘柄を配列から除外する
                 historyObj[targetName] = historyObj[targetName].filter(s => s !== targetSubName);
             } else {
-                // 入力がある場合は置換する
                 historyObj[targetName] = historyObj[targetName].map(s => s === targetSubName ? newSubName : s);
             }
             const newHistoryArray = Object.keys(historyObj).map(n => ({ name: n, subs: historyObj[n] }));
@@ -238,7 +243,7 @@ export function renderGoodsShoppingTab(container) {
     });
 
     container.innerHTML = `
-        <p style="margin-bottom: 16px; font-size: 13px; color: #6b7280;">※在庫にない日用品、または「🛒」がONの品目が表示されます。商品名（銘柄等）をクリックして登録された情報を編集できます。</p>
+        <p style="margin-bottom: 16px; font-size: 13px; color: #6b7280;">※在庫にない日用品、または「🛒」がONの品目が表示されます。商品名（銘柄等）をクリックして登録内容を編集できます。</p>
         <div class="list-header">
             <div class="col-name">品名</div>
             <div class="col-sub">商品名（銘柄等）</div>
