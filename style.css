@@ -7,6 +7,25 @@ button { border: none; border-radius: 8px; padding: 12px; font-weight: bold; fon
 .btn-blue { background-color: var(--blue); }
 .btn-red { background-color: var(--red); }
 .btn-outline { background-color: transparent; border: 1px solid var(--border); color: var(--text-main); }
+/* 🛒 や 🗑 などのアイコンボタン用の共通クラスを追加 */
+.btn-icon {
+    background: transparent !important;
+    color: inherit !important;
+    padding: 4px !important;
+    border: none !important;
+    font-size: 18px !important;
+    cursor: pointer;
+}
+
+/* 削除ボタン（ゴミ箱）の色や見た目を調整する場合 */
+.btn-delete-cart, .btn-delete-small {
+    background: transparent;
+    color: var(--red);
+    border: none;
+    padding: 4px;
+    font-size: 18px;
+    cursor: pointer;
+}
 
 /* モバイルの横幅でも綺麗に収まるようにナビゲーションを調整 */
 .main-nav { display: flex; gap: 2px; padding: 8px; border-bottom: 1px solid var(--border); background: var(--bg); }
