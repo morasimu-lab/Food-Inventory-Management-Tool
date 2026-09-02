@@ -90,7 +90,17 @@ function renderFoodRegister(container) {
             history.push(name);
             Storage.save('FOOD_HISTORY', history);
         }
-        alert('登録しました');
+        // 登録完了後の確認ダイアログ
+        if (confirm('登録しました。続けて商品を登録しますか？')) {
+            // はい：入力欄をクリアして登録画面に留まる
+            document.getElementById('input-food-name').value = '';
+            // 必要に応じ他の入力欄もクリア
+            document.getElementById('input-food-name').focus();
+        } else {
+            // いいえ：在庫画面に戻る
+            currentSubView = 'list';
+            renderFoodTab(container);
+        }
     };
 }
 
