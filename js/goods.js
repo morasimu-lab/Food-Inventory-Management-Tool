@@ -83,6 +83,10 @@ function renderGoodsRegister(container) {
             <label>商品名（銘柄など / 複数の場合はカンマ区切り）</label>
             <input type="text" id="input-goods-sub" placeholder="例: メリット, h&s">
         </div>
+        <div class="form-group" style="display:flex; align-items:center; gap:8px;">
+            <input type="checkbox" id="input-goods-nohistory" style="width:18px; height:18px;">
+            <label for="input-goods-nohistory" style="margin-bottom:0; font-weight:normal; cursor:pointer;">履歴（サジェスト）に残さない</label>
+        </div>
         <button class="btn-blue" style="width: 100%; padding: 16px;" id="btn-submit-goods">登録する</button>
     `;
 
@@ -90,33 +94,32 @@ function renderGoodsRegister(container) {
     container.querySelector('#btn-submit-goods').onclick = () => {
         const name = document.getElementById('input-goods-name').value.trim();
         const subRaw = document.getElementById('input-goods-sub').value.trim();
+        const noHistory = document.getElementById('input-goods-nohistory').checked;
         if (!name) return alert('品名を入力してください。');
 
-        const newSubs = subRaw ? subRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
+        const newSubs = subRaw ? subRaw.split(',').map(s => s.trim()).filter(Boolean) : : [];
 
-        // 1. 履歴に品目と商品名/銘柄を追加
-        let historyObj = historyMap;
-        if (!historyObj[name]) historyObj[name] = [];
-        
-        newSubs.forEach(sub => {
-            if (!historyObj[name].includes(sub)) {
-                historyObj[name].push(sub);
-            }
-        });
+        if (!noHistory) {
+            let historyObj = historyMap;
+            if (!historyObj[name]) historyObj[name] = [];
+            
+            newSubs.forEach(sub => {
+                if (!historyObj[name].includes(sub)) {
+                    historyObj[name].push(sub);
+                }
+            });
 
-        const newHistoryArray = Object.keys(historyObj).map(n => ({ name: n, subs: historyObj[n] }));
-        Storage.save('GOODS_HISTORY', newHistoryArray);
+            const newHistoryArray = Object.keys(historyObj).map(n => ({ name: n, subs: historyObj[n] }));
+            Storage.save('GOODS_HISTORY', newHistoryArray);
+        }
 
-        // 2. 在庫リストへの登録 / カートON（needBuy）の解除処理
         let rawItems = Storage.load('GOODS_LIST');
         let items = Array.isArray(rawItems) ? rawItems : [];
         let targetItem = items.find(i => i.name === name);
         
         if (targetItem) {
-            // すでに在庫にある場合はカートONを解除する
             targetItem.needBuy = false;
         } else {
-            // 在庫にない場合は新しく追加する
             items.push({
                 id: Date.now().toString(),
                 name,
@@ -125,10 +128,10 @@ function renderGoodsRegister(container) {
         }
         Storage.save('GOODS_LIST', items);
 
-        // 3. 登録完了後の確認ダイアログ
         if (confirm('登録しました。続けて商品を登録しますか？')) {
             document.getElementById('input-goods-name').value = '';
             document.getElementById('input-goods-sub').value = '';
+            document.getElementById('input-goods-nohistory').checked = false;
             document.getElementById('input-goods-name').focus();
         } else {
             currentSubView = 'list';
@@ -243,7 +246,7 @@ export function renderGoodsShoppingTab(container) {
     });
 
     container.innerHTML = `
-        <p style="margin-bottom: 16px; font-size: 13px; color: #6b7280;">※在庫にない日用品、または「🛒」がONの品目が表示されます。商品名（銘柄等）をクリックして登録内容を編集できます。</p>
+        <p style="margin-bottom: 16px; font-size: 13px; color: #6b7280;">※在庫にない履歴、または「🛒」がONの品目が表示されます。商品名をクリックして編集、ゴミ箱で履歴から削除できます。</p>
         <div class="list-header">
             <div class="col-name">品名</div>
             <div class="col-sub">商品名（銘柄等）</div>
@@ -254,15 +257,23 @@ export function renderGoodsShoppingTab(container) {
             
             ${shoppingNames.map(name => {
                 const subNames = historyObj[name] || [];
+                const invItem = inventoryMap[name];
+                const isInInventory = !!invItem;
+                const isNeedBuy = invItem && invItem.needBuy;
+
                 return `
                     <div class="list-item">
-                        <div class="col-name" style="font-weight:bold;">${escapeHTML(name)}</div>
+                        <div class="col-name" style="font-weight:bold;">
+                            ${escapeHTML(name)}
+                            ${!isInInventory ? '<span style="font-size:11px; color:#6b7280; margin-left:6px;">(在庫なし)</span>' : ''}
+                        </div>
                         <div class="col-sub">
                             ${subNames.length > 0 
                                 ? subNames.map(sub => `<span class="goods-sub-trigger" data-name="${escapeHTML(name)}" data-sub="${escapeHTML(sub)}" style="color:var(--blue); cursor:pointer; margin-right:8px; display:inline-block;">${escapeHTML(sub)}</span>`).join('') 
                                 : '<span style="color:var(--text-light);">なし</span>'}
                         </div>
-                        <div class="col-check" style="flex:0.5; display:flex; justify-content:center;">
+                        <div class="col-check" style="flex:0.5; display:flex; justify-content:center; gap:8px;">
+                            ${isNeedBuy ? `<button class="btn-cart active btn-uncheck-cart" data-name="${escapeHTML(name)}" style="background:transparent; border:none; font-size:18px; cursor:pointer; color:var(--cart);">🛒</button>` : ''}
                             <button class="btn-delete-cart" style="background: transparent; border: none; color: var(--red); font-size: 18px; cursor: pointer; padding: 4px;" data-name="${escapeHTML(name)}">🗑</button>
                         </div>
                     </div>
@@ -276,6 +287,20 @@ export function renderGoodsShoppingTab(container) {
             const name = el.getAttribute('data-name');
             const sub = el.getAttribute('data-sub');
             openSubNameEditModal(name, sub, container);
+        };
+    });
+
+    container.querySelectorAll('.btn-uncheck-cart').forEach(btn => {
+        btn.onclick = (e) => {
+            const name = e.target.getAttribute('data-name');
+            let rawItems = Storage.load('GOODS_LIST');
+            let items = Array.isArray(rawItems) ? rawItems : [];
+            let item = items.find(i => i.name === name);
+            if (item) {
+                item.needBuy = false;
+                Storage.save('GOODS_LIST', items);
+                renderGoodsShoppingTab(container);
+            }
         };
     });
 
