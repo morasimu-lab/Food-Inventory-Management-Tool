@@ -127,7 +127,7 @@ function openGoodsEditModal(name) {
         <div style="background:white; padding:20px; border-radius:12px; width:90%; max-width:400px;">
             <h3 style="margin-bottom:16px;">商品名の編集・削除</h3>
             <div class="form-group">
-                <label>商品名（品名）</label>
+                <label>品名</label>
                 <input type="text" id="modal-goods-name" value="${escapeHTML(name)}">
             </div>
             <div style="display:flex; gap:8px; margin-top:20px;">
@@ -144,15 +144,13 @@ function openGoodsEditModal(name) {
     
     modalBg.querySelector('#modal-save').onclick = () => {
         const newName = document.getElementById('modal-goods-name').value.trim();
-        if (!newName) return alert('商品名を入力してください。');
+        if (!newName) return alert('品名を入力してください。');
 
-        // 履歴の更新
         let rawHistory = Storage.load('GOODS_HISTORY');
         let history = Array.isArray(rawHistory) ? rawHistory : [];
         history = history.map(n => n === name ? newName : n);
         Storage.save('GOODS_HISTORY', history);
 
-        // 在庫リスト側の対応する名前も更新
         let rawItems = Storage.load('GOODS_LIST');
         let items = Array.isArray(rawItems) ? rawItems : [];
         items.forEach(item => {
@@ -187,34 +185,56 @@ export function renderGoodsShoppingTab(container) {
 
     const rawInventory = Storage.load('GOODS_LIST');
     const inventory = Array.isArray(rawInventory) ? rawInventory : [];
-    const inventoryNames = inventory.map(i => i.name);
     
+    // 在庫リストに紐づくサブ情報（商品名・銘柄等）もあわせて収集する
+    // 買い物リストには「品名」または「商品名(subNames)」を載せる形にするか、
+    // あるいは在庫リストに登録されている個別の商品名・品目を一覧化します。
+    // ここでは、履歴（品名）ベースの未在庫項目 ＋ 在庫リストでneedBuyがtrueになっているものを対象に構築します。
+    
+    const inventoryNames = inventory.map(i => i.name);
     const outOfStock = history.filter(name => !inventoryNames.includes(name));
-    const wantToBuy = inventory.filter(i => i.needBuy).map(i => i.name);
-    const shoppingItems = Array.from(new Set([...outOfStock, ...wantToBuy])).sort();
+    
+    // 在庫側でカートに入っているもの
+    const cartItems = inventory.filter(i => i.needBuy);
 
     container.innerHTML = `
-        <p style="margin-bottom: 16px; font-size: 13px; color: #6b7280;">※使い切った日用品、または在庫から「🛒」をつけたものが表示されます。商品名を選択して編集・削除が行えます。</p>
-        <div class="list-header" style="margin-bottom: 8px;">
-            <div class="col-name" style="font-weight:bold;">商品名</div>
+        <p style="margin-bottom: 16px; font-size: 13px; color: #6b7280;">※使い切った日用品、または在庫から「🛒」をつけたものが表示されます。品名をクリックして編集が行えます。</p>
+        <div class="list-header">
+            <div class="col-name">品名</div>
+            <div class="col-sub">商品名（銘柄等）</div>
             <div class="col-check" style="flex:0.5;">操作</div>
         </div>
         <div>
-            ${shoppingItems.length === 0 ? '<div class="empty-message">買うべき日用品はありません</div>' : ''}
-            ${shoppingItems.map(name => `
-                <div class="shopping-item" style="display: flex; align-items: center; padding: 12px 8px; border-bottom: 1px solid var(--border);">
-                    <div class="goods-shopping-trigger" data-name="${escapeHTML(name)}" style="flex: 1; cursor: pointer; font-weight: bold; color: var(--blue); word-break: break-all;">${escapeHTML(name)}</div>
-                    <button class="btn-delete-small" data-name="${escapeHTML(name)}" style="flex: 0.5; display: flex; justify-content: center;">🗑</button>
+            ${outOfStock.length === 0 && cartItems.length === 0 ? '<div class="empty-message">買うべき日用品はありません</div>' : ''}
+            
+            ${outOfStock.map(name => `
+                <div class="list-item">
+                    <div class="col-name goods-shopping-trigger" data-name="${escapeHTML(name)}" style="font-weight:bold; color:var(--blue); cursor:pointer;">${escapeHTML(name)}</div>
+                    <div class="col-sub" style="color:var(--text-light);">なし</div>
+                    <div class="col-check" style="flex:0.5; display:flex; justify-content:center;">
+                        <button class="btn-delete-small" data-name="${escapeHTML(name)}">🗑</button>
+                    </div>
+                </div>
+            `).join('')}
+
+            ${cartItems.map(item => `
+                <div class="list-item">
+                    <div class="col-name goods-shopping-trigger" data-name="${escapeHTML(item.name)}" style="font-weight:bold; color:var(--blue); cursor:pointer;">${escapeHTML(item.name)}</div>
+                    <div class="col-sub">${escapeHTML(Array.isArray(item.subNames) ? item.subNames.join(', ') : 'なし')}</div>
+                    <div class="col-check" style="flex:0.5; display:flex; justify-content:center;">
+                        <button class="btn-delete-cart" data-id="${item.id}">🛒解除</button>
+                    </div>
                 </div>
             `).join('')}
         </div>
     `;
 
-    // 商品名をクリックして編集モーダルを開く
+    // 品名をクリックして編集モーダルを開く
     container.querySelectorAll('.goods-shopping-trigger').forEach(el => {
         el.onclick = () => openGoodsEditModal(el.getAttribute('data-name'));
     });
 
+    // 履歴からの削除ボタン
     container.querySelectorAll('.btn-delete-small').forEach(btn => {
         btn.onclick = (e) => {
             const name = e.target.getAttribute('data-name');
@@ -228,6 +248,21 @@ export function renderGoodsShoppingTab(container) {
                 items.forEach(item => { if (item.name === name) item.needBuy = false; });
                 Storage.save('GOODS_LIST', items);
                 
+                renderGoodsShoppingTab(container);
+            }
+        };
+    });
+
+    // カート（🛒）の解除ボタン
+    container.querySelectorAll('.btn-delete-cart').forEach(btn => {
+        btn.onclick = (e) => {
+            const id = e.target.getAttribute('data-id');
+            let rawItems = Storage.load('GOODS_LIST');
+            let items = Array.isArray(rawItems) ? rawItems : [];
+            let item = items.find(i => i.id === id);
+            if (item) {
+                item.needBuy = false;
+                Storage.save('GOODS_LIST', items);
                 renderGoodsShoppingTab(container);
             }
         };
