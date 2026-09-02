@@ -148,7 +148,7 @@ export function renderFoodShoppingTab(container) {
     container.querySelectorAll('.btn-delete-small').forEach(btn => {
         btn.onclick = (e) => {
             const name = e.target.getAttribute('data-name');
-            if (confirm(`「${name}」を履歴からも完全に削除しますか？`)) {
+            if (confirm(`「${name}」を履歴（および買い物リスト）からも完全に削除しますか？`)) {
                 Storage.save('FOOD_HISTORY', Storage.load('FOOD_HISTORY').filter(n => n !== name));
                 let items = Storage.load('FOOD_LIST');
                 items.forEach(item => { if (item.name === name) item.needBuy = false; });
