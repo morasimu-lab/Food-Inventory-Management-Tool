@@ -1,6 +1,7 @@
 import { Storage, escapeHTML } from './storage.js';
 
 let currentSubView = 'list';
+window.resetGoodsSubView = () => { currentSubView = 'list'; };
 
 export function renderGoodsTab(container) {
     if (currentSubView === 'list') {
@@ -11,7 +12,6 @@ export function renderGoodsTab(container) {
 }
 
 function renderGoodsList(container) {
-    // 確実に配列として読み込む（配列でなければ空配列にする）
     const rawData = Storage.load('GOODS_LIST');
     const items = Array.isArray(rawData) ? rawData.sort((a, b) => a.name.localeCompare(b.name)) : [];
 
@@ -30,8 +30,8 @@ function renderGoodsList(container) {
             ${items.length === 0 ? '<div class="empty-message">登録されている日用品はありません</div>' : ''}
             ${items.map(item => `
                 <div class="list-item">
-                    <div class="col-name goods-detail-trigger" data-id="${item.id}" style="cursor:pointer; font-weight:bold; color:var(--blue);">${escapeHTML(item.name)}</div>
-                    <div class="col-sub goods-detail-trigger" data-id="${item.id}" style="cursor:pointer;">${escapeHTML(Array.isArray(item.subNames) ? item.subNames.join(', ') : 'なし')}</div>
+                    <div class="col-name" style="font-weight:bold;">${escapeHTML(item.name)}</div>
+                    <div class="col-sub">${escapeHTML(Array.isArray(item.subNames) ? item.subNames.join(', ') : 'なし')}</div>
                     <div class="col-cart">
                         <button class="btn-cart ${item.needBuy ? 'active' : ''}" data-id="${item.id}">🛒</button>
                     </div>
@@ -46,10 +46,6 @@ function renderGoodsList(container) {
 
     container.querySelectorAll('.btn-cart').forEach(btn => {
         btn.onclick = (e) => toggleGoodsCart(e.target.getAttribute('data-id'), container);
-    });
-
-    container.querySelectorAll('.goods-detail-trigger').forEach(el => {
-        el.onclick = () => openGoodsDetailModal(el.getAttribute('data-id'));
     });
 }
 
@@ -123,25 +119,16 @@ function deleteSelectedGoods() {
     }
 }
 
-function openGoodsDetailModal(id) {
-    let rawItems = Storage.load('GOODS_LIST');
-    let items = Array.isArray(rawItems) ? rawItems : [];
-    const item = items.find(i => i.id === id);
-    if (!item) return;
-
+function openGoodsEditModal(name) {
     const modalBg = document.createElement('div');
     modalBg.style.cssText = "position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; z-index:1000;";
     
     modalBg.innerHTML = `
         <div style="background:white; padding:20px; border-radius:12px; width:90%; max-width:400px;">
-            <h3 style="margin-bottom:16px;">日用品の詳細確認</h3>
+            <h3 style="margin-bottom:16px;">商品名の編集・削除</h3>
             <div class="form-group">
-                <label>品名</label>
-                <input type="text" id="modal-goods-name" value="${escapeHTML(item.name)}">
-            </div>
-            <div class="form-group">
-                <label>登録されている商品名（カンマ区切り）</label>
-                <input type="text" id="modal-goods-sub" value="${escapeHTML(Array.isArray(item.subNames) ? item.subNames.join(', ') : '')}">
+                <label>商品名（品名）</label>
+                <input type="text" id="modal-goods-name" value="${escapeHTML(name)}">
             </div>
             <div style="display:flex; gap:8px; margin-top:20px;">
                 <button class="btn-blue" style="flex:1;" id="modal-save">更新</button>
@@ -154,24 +141,42 @@ function openGoodsDetailModal(id) {
     document.body.appendChild(modalBg);
 
     modalBg.querySelector('#modal-cancel').onclick = () => document.body.removeChild(modalBg);
+    
     modalBg.querySelector('#modal-save').onclick = () => {
         const newName = document.getElementById('modal-goods-name').value.trim();
-        const newSubRaw = document.getElementById('modal-goods-sub').value.trim();
-        if (!newName) return alert('品名を入力してください。');
+        if (!newName) return alert('商品名を入力してください。');
 
-        item.name = newName;
-        item.subNames = newSubRaw ? newSubRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
+        // 履歴の更新
+        let rawHistory = Storage.load('GOODS_HISTORY');
+        let history = Array.isArray(rawHistory) ? rawHistory : [];
+        history = history.map(n => n === name ? newName : n);
+        Storage.save('GOODS_HISTORY', history);
+
+        // 在庫リスト側の対応する名前も更新
+        let rawItems = Storage.load('GOODS_LIST');
+        let items = Array.isArray(rawItems) ? rawItems : [];
+        items.forEach(item => {
+            if (item.name === name) item.name = newName;
+        });
         Storage.save('GOODS_LIST', items);
 
         document.body.removeChild(modalBg);
-        renderGoodsTab(document.getElementById('tab-goods'));
+        renderGoodsShoppingTab(document.getElementById('tab-goods-shopping'));
     };
 
     modalBg.querySelector('#modal-delete').onclick = () => {
-        if (confirm(`「${item.name}」を削除しますか？`)) {
-            Storage.save('GOODS_LIST', items.filter(i => i.id !== id));
+        if (confirm(`「${name}」を履歴および関連データからも完全に削除しますか？`)) {
+            let rawHistory = Storage.load('GOODS_HISTORY');
+            let history = Array.isArray(rawHistory) ? rawHistory : [];
+            Storage.save('GOODS_HISTORY', history.filter(n => n !== name));
+
+            let rawItems = Storage.load('GOODS_LIST');
+            let items = Array.isArray(rawItems) ? rawItems : [];
+            items.forEach(item => { if (item.name === name) item.needBuy = false; });
+            Storage.save('GOODS_LIST', items);
+
             document.body.removeChild(modalBg);
-            renderGoodsTab(document.getElementById('tab-goods'));
+            renderGoodsShoppingTab(document.getElementById('tab-goods-shopping'));
         }
     };
 }
@@ -189,17 +194,26 @@ export function renderGoodsShoppingTab(container) {
     const shoppingItems = Array.from(new Set([...outOfStock, ...wantToBuy])).sort();
 
     container.innerHTML = `
-        <p style="margin-bottom: 16px; font-size: 13px; color: #6b7280;">※使い切った日用品、または在庫から「🛒」をつけたものが表示されます。</p>
+        <p style="margin-bottom: 16px; font-size: 13px; color: #6b7280;">※使い切った日用品、または在庫から「🛒」をつけたものが表示されます。商品名を選択して編集・削除が行えます。</p>
+        <div class="list-header" style="margin-bottom: 8px;">
+            <div class="col-name" style="font-weight:bold;">商品名</div>
+            <div class="col-check" style="flex:0.5;">操作</div>
+        </div>
         <div>
             ${shoppingItems.length === 0 ? '<div class="empty-message">買うべき日用品はありません</div>' : ''}
             ${shoppingItems.map(name => `
-                <div class="shopping-item">
-                    <div>${escapeHTML(name)}</div>
-                    <button class="btn-delete-small" data-name="${escapeHTML(name)}">🗑</button>
+                <div class="shopping-item" style="display: flex; align-items: center; padding: 12px 8px; border-bottom: 1px solid var(--border);">
+                    <div class="goods-shopping-trigger" data-name="${escapeHTML(name)}" style="flex: 1; cursor: pointer; font-weight: bold; color: var(--blue); word-break: break-all;">${escapeHTML(name)}</div>
+                    <button class="btn-delete-small" data-name="${escapeHTML(name)}" style="flex: 0.5; display: flex; justify-content: center;">🗑</button>
                 </div>
             `).join('')}
         </div>
     `;
+
+    // 商品名をクリックして編集モーダルを開く
+    container.querySelectorAll('.goods-shopping-trigger').forEach(el => {
+        el.onclick = () => openGoodsEditModal(el.getAttribute('data-name'));
+    });
 
     container.querySelectorAll('.btn-delete-small').forEach(btn => {
         btn.onclick = (e) => {
