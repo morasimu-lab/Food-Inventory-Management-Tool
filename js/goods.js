@@ -97,7 +97,7 @@ function renderGoodsRegister(container) {
         const noHistory = document.getElementById('input-goods-nohistory').checked;
         if (!name) return alert('品名を入力してください。');
 
-        const newSubs = subRaw ? subRaw.split(',').map(s => s.trim()).filter(Boolean) : : [];
+        const newSubs = subRaw ? subRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
 
         if (!noHistory) {
             let historyObj = historyMap;
