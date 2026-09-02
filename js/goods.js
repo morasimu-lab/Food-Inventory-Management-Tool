@@ -21,7 +21,6 @@ function renderGoodsList(container) {
         rawItems.forEach(i => { itemsMap[i.name] = i; });
     }
 
-    // 在庫リストに登録されている品目（itemsMapのキー）の一覧
     const stockNames = Object.keys(itemsMap).sort((a, b) => a.localeCompare(b));
 
     container.innerHTML = `
@@ -63,7 +62,6 @@ function renderGoodsList(container) {
     container.querySelector('#btn-goto-goods-reg').onclick = () => { currentSubView = 'register'; renderGoodsTab(container); };
     container.querySelector('#btn-delete-goods').onclick = deleteSelectedGoods;
 
-    // カート（🛒）ボタンの切り替え
     container.querySelectorAll('.btn-cart').forEach(btn => {
         btn.onclick = (e) => toggleGoodsCart(e.target.getAttribute('data-name'), container);
     });
@@ -96,7 +94,6 @@ function renderGoodsRegister(container) {
 
         const newSubs = subRaw ? subRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
 
-        // 1. 履歴に品目と商品名/銘柄を追加
         let historyObj = historyMap;
         if (!historyObj[name]) historyObj[name] = [];
         
@@ -109,7 +106,6 @@ function renderGoodsRegister(container) {
         const newHistoryArray = Object.keys(historyObj).map(n => ({ name: n, subs: historyObj[n] }));
         Storage.save('GOODS_HISTORY', newHistoryArray);
 
-        // 2. 在庫に品目を追加
         let rawItems = Storage.load('GOODS_LIST');
         let items = Array.isArray(rawItems) ? rawItems : [];
         let targetItem = items.find(i => i.name === name);
@@ -122,12 +118,20 @@ function renderGoodsRegister(container) {
             Storage.save('GOODS_LIST', items);
         }
 
-        alert('登録しました');
-        document.getElementById('input-goods-sub').value = '';
+        // 登録完了後の確認ダイアログ
+        if (confirm('登録しました。続けて商品を登録しますか？')) {
+            // はい：入力欄をクリアして登録画面に留まる
+            document.getElementById('input-goods-name').value = '';
+            document.getElementById('input-goods-sub').value = '';
+            document.getElementById('input-goods-name').focus();
+        } else {
+            // いいえ：在庫画面に戻る
+            currentSubView = 'list';
+            renderGoodsTab(container);
+        }
     };
 }
 
-// 履歴データを安全に「品名: [サブ名配列]」のオブジェクト形式へ正規化する
 function getNormalizedHistory(rawHistory) {
     const map = {};
     if (!Array.isArray(rawHistory)) return map;
@@ -158,7 +162,6 @@ function toggleGoodsCart(name, container) {
     }
 }
 
-// 在庫リストからの削除（在庫リストのみから削除し、履歴は残す）
 function deleteSelectedGoods() {
     const checked = Array.from(document.querySelectorAll('.goods-checkbox:checked')).map(cb => cb.value);
     if (!checked.length) return alert('選択されていません。');
@@ -172,7 +175,6 @@ function deleteSelectedGoods() {
     }
 }
 
-// 商品名（銘柄等）を個別に編集するモーダル
 function openSubNameEditModal(targetName, targetSubName, container) {
     const modalBg = document.createElement('div');
     modalBg.style.cssText = "position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; z-index:1000;";
@@ -202,7 +204,6 @@ function openSubNameEditModal(targetName, targetSubName, container) {
         const newSubName = document.getElementById('modal-sub-name').value.trim();
         if (!newSubName) return alert('商品名を入力してください。');
 
-        // 履歴の該当商品名を更新
         let rawHistory = Storage.load('GOODS_HISTORY');
         let historyObj = getNormalizedHistory(rawHistory);
         if (historyObj[targetName]) {
@@ -227,18 +228,16 @@ export function renderGoodsShoppingTab(container) {
     }
 
     const allNames = Object.keys(historyObj);
-    // 買い物リストの表示条件：在庫リストにない履歴、または在庫リストでカートアイコンがONの品目
     const shoppingNames = allNames.filter(name => {
         const item = inventoryMap[name];
         return !item || item.needBuy;
     });
 
     container.innerHTML = `
-        <p style="margin-bottom: 16px; font-size: 13px; color: #6b7280;">※在庫にない履歴、または「🛒」がONの品目が表示されます。商品名をクリックして編集、ゴミ箱で履歴から削除できます。</p>
+        <p style="margin-bottom: 16px; font-size: 13px; color: #6b7280;">※在庫にない日用品、または「🛒」がONの品目が表示されます。商品名（銘柄等）をクリックすると内容の編集ができます。</p>
         <div class="list-header">
             <div class="col-name">品名</div>
             <div class="col-sub">商品名（銘柄等）</div>
-            <div class="col-check" style="flex:0.5;">操作</div>
         </div>
         <div>
             ${shoppingNames.length === 0 ? '<div class="empty-message">買うべき日用品はありません</div>' : ''}
@@ -262,7 +261,6 @@ export function renderGoodsShoppingTab(container) {
         </div>
     `;
 
-    // 買い物タブでの商品名クリック編集
     container.querySelectorAll('.goods-sub-trigger').forEach(el => {
         el.onclick = () => {
             const name = el.getAttribute('data-name');
@@ -271,7 +269,6 @@ export function renderGoodsShoppingTab(container) {
         };
     });
 
-    // ゴミ箱アイコン（確認ダイアログを挟んで履歴から削除）
     container.querySelectorAll('.btn-delete-cart').forEach(btn => {
         btn.onclick = (e) => {
             const name = e.target.getAttribute('data-name');
@@ -283,7 +280,6 @@ export function renderGoodsShoppingTab(container) {
                 const newHistoryArray = Object.keys(historyObj).map(n => ({ name: n, subs: historyObj[n] }));
                 Storage.save('GOODS_HISTORY', newHistoryArray);
 
-                // 在庫リストにある場合はneedBuyをfalseにする、もしくはそのまま
                 let rawItems = Storage.load('GOODS_LIST');
                 let items = Array.isArray(rawItems) ? rawItems : [];
                 let item = items.find(i => i.name === name);
