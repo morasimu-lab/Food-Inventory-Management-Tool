@@ -118,14 +118,11 @@ function renderGoodsRegister(container) {
             Storage.save('GOODS_LIST', items);
         }
 
-        // 登録完了後の確認ダイアログ
         if (confirm('登録しました。続けて商品を登録しますか？')) {
-            // はい：入力欄をクリアして登録画面に留まる
             document.getElementById('input-goods-name').value = '';
             document.getElementById('input-goods-sub').value = '';
             document.getElementById('input-goods-name').focus();
         } else {
-            // いいえ：在庫画面に戻る
             currentSubView = 'list';
             renderGoodsTab(container);
         }
@@ -175,6 +172,7 @@ function deleteSelectedGoods() {
     }
 }
 
+// 商品名（銘柄等）を個別に編集するモーダル（空欄の場合は削除）
 function openSubNameEditModal(targetName, targetSubName, container) {
     const modalBg = document.createElement('div');
     modalBg.style.cssText = "position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; z-index:1000;";
@@ -186,7 +184,7 @@ function openSubNameEditModal(targetName, targetSubName, container) {
                 <label>品名: ${escapeHTML(targetName)}</label>
             </div>
             <div class="form-group">
-                <label>商品名（銘柄など）</label>
+                <label>商品名（銘柄など） ※空欄にすると削除されます</label>
                 <input type="text" id="modal-sub-name" value="${escapeHTML(targetSubName)}">
             </div>
             <div style="display:flex; gap:8px; margin-top:20px;">
@@ -202,12 +200,18 @@ function openSubNameEditModal(targetName, targetSubName, container) {
     
     modalBg.querySelector('#modal-save').onclick = () => {
         const newSubName = document.getElementById('modal-sub-name').value.trim();
-        if (!newSubName) return alert('商品名を入力してください。');
 
         let rawHistory = Storage.load('GOODS_HISTORY');
         let historyObj = getNormalizedHistory(rawHistory);
+
         if (historyObj[targetName]) {
-            historyObj[targetName] = historyObj[targetName].map(s => s === targetSubName ? newSubName : s);
+            if (newSubName === '') {
+                // 空欄の場合は該当の銘柄を配列から除外する
+                historyObj[targetName] = historyObj[targetName].filter(s => s !== targetSubName);
+            } else {
+                // 入力がある場合は置換する
+                historyObj[targetName] = historyObj[targetName].map(s => s === targetSubName ? newSubName : s);
+            }
             const newHistoryArray = Object.keys(historyObj).map(n => ({ name: n, subs: historyObj[n] }));
             Storage.save('GOODS_HISTORY', newHistoryArray);
         }
@@ -234,10 +238,11 @@ export function renderGoodsShoppingTab(container) {
     });
 
     container.innerHTML = `
-        <p style="margin-bottom: 16px; font-size: 13px; color: #6b7280;">※在庫にない日用品、または「🛒」がONの品目が表示されます。商品名（銘柄等）をクリックすると内容の編集ができます。</p>
+        <p style="margin-bottom: 16px; font-size: 13px; color: #6b7280;">※在庫にない日用品、または「🛒」がONの品目が表示されます。商品名（銘柄等）をクリックして登録された情報を編集できます。</p>
         <div class="list-header">
             <div class="col-name">品名</div>
             <div class="col-sub">商品名（銘柄等）</div>
+            <div class="col-check" style="flex:0.5;">操作</div>
         </div>
         <div>
             ${shoppingNames.length === 0 ? '<div class="empty-message">買うべき日用品はありません</div>' : ''}
@@ -253,7 +258,7 @@ export function renderGoodsShoppingTab(container) {
                                 : '<span style="color:var(--text-light);">なし</span>'}
                         </div>
                         <div class="col-check" style="flex:0.5; display:flex; justify-content:center;">
-                            <button class="btn-delete-cart" data-name="${escapeHTML(name)}">🗑</button>
+                            <button class="btn-delete-cart" style="background: transparent; border: none; color: var(--red); font-size: 18px; cursor: pointer; padding: 4px;" data-name="${escapeHTML(name)}">🗑</button>
                         </div>
                     </div>
                 `;
