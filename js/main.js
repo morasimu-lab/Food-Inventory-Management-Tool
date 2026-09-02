@@ -8,6 +8,14 @@ window.switchTab = function(tabName) {
     // すべてのナビゲーションボタンの背景色をリセット
     document.querySelectorAll('.main-nav button').forEach(btn => btn.style.backgroundColor = 'transparent');
 
+    // 別のタブに移動した際、在庫タブ（food / goods）であれば内部状態を強制的にリスト画面に戻す
+    if (tabName !== 'food' && window.resetFoodSubView) {
+        window.resetFoodSubView();
+    }
+    if (tabName !== 'goods' && window.resetGoodsSubView) {
+        window.resetGoodsSubView();
+    }
+
     // 該当するタブコンテンツを表示
     const targetContent = document.getElementById(`tab-${tabName}`);
     if (targetContent) {
