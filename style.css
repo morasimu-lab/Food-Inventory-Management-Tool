@@ -37,7 +37,7 @@ button { border: none; border-radius: 8px; padding: 12px; font-weight: bold; fon
 .action-buttons { display: flex; gap: 12px; margin-bottom: 16px; }
 .action-buttons button:nth-child(1) { flex: 1; }
 .action-buttons button:nth-child(2) { flex: 1; }
-.action-buttons button:nth-child(3) { flex: 1 }
+.action-buttons button:nth-child(3) { flex: 1; }
 
 .list-header, .list-item { display: flex; align-items: center; padding: 12px 2px; border-bottom: 1px solid var(--border); font-size: 13px; }
 .list-header { font-weight: bold; border-bottom: 2px solid var(--border); background-color: var(--bg); position: sticky; top: 0; font-size: 12px; color: #4b5563; }
