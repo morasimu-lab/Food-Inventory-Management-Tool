@@ -1,45 +1,43 @@
-import { Storage, escapeHTML } from './storage.js';
+// food.js
+
+import { escapeHTML } from './storage.js';
+import { updateAppState, renderCurrentTab } from './main.js';
 import { moveCategory, openCategoryManageModal, openChangeCategoryModal } from './categoryModal.js';
 
 let currentSubView = 'list';
+window.resetFoodSubView = () => { currentSubView = 'list'; };
 
-// パターンB用：現在開いているカテゴリ名を一時的に保持する変数
 let openedCategoriesCache = [];
 
-export function renderFoodTab(container) {
+export function renderFoodTab(container, appState) {
     if (currentSubView === 'list') {
-        renderFoodList(container);
+        renderFoodList(container, appState);
     } else {
-        renderFoodRegister(container);
+        renderFoodRegister(container, appState);
     }
 }
 
-function renderFoodList(container) {
-    // --- 1. 再描画の直前：現在開いているアコーディオンを調べる ---
+function renderFoodList(container, appState) {
+    const items = appState.foodList;
+    const categories = appState.foodCategories;
+
+    // アコーディオンの開閉状態を保持
     const currentlyOpened = [];
     container.querySelectorAll('.category-content').forEach(content => {
         if (content.style.display === 'block') {
-            const catId = content.id.replace('cat-content-', '');
-            currentlyOpened.push(catId);
+            currentlyOpened.push(content.id.replace('cat-content-', ''));
         }
     });
-    // 初回（キャッシュが空）のときは、ユーザーが意図的に操作する前なのでキャッシュ保持の対象外にする等はお好みですが、
-    // 基本は「直前の状態」を引き継ぐために保持します
-    if (currentlyOpened.length > 0) {
-        openedCategoriesCache = currentlyOpened;
-    }
+    if (currentlyOpened.length > 0) openedCategoriesCache = currentlyOpened;
 
-    const items = Storage.load('FOOD_LIST').sort((a, b) => {
-        const expA = a.expDate || '9999/99/99', expB = b.expDate || '9999/99/99';
+    const sortedItems = [...items].sort((a, b) => {
+        const expA = a.expDate || '9999/99/99';
+        const expB = b.expDate || '9999/99/99';
         if (expA !== expB) return expA.localeCompare(expB);
-        if (a.regDate !== b.regDate) return a.regDate.localeCompare(b.regDate);
-        return a.name.localeCompare(b.name);
+        return (a.name || '').localeCompare(b.name || '');
     });
 
-    const rawCategories = Storage.load('FOOD_CATEGORIES');
-    const categories = Array.isArray(rawCategories) ? rawCategories : [];
-
-    const unclassifiedItems = items.filter(i => !i.category || !categories.includes(i.category));
+    const unclassifiedItems = sortedItems.filter(i => !i.category || !categories.includes(i.category));
 
     container.innerHTML = `
         <div class="action-buttons">
@@ -48,9 +46,8 @@ function renderFoodList(container) {
             <button class="btn-outline" id="btn-manage-categories" style="width:auto; padding:8px 12px;">📁 カテゴリ管理</button>
         </div>
         <div>
-            ${items.length === 0 ? '<div class="empty-message">登録されている食品はありません</div>' : ''}
+            ${sortedItems.length === 0 ? '<div class="empty-message">登録されている食品はありません</div>' : ''}
 
-            <!-- 未分類セクション -->
             ${unclassifiedItems.length > 0 ? `
                 <div class="category-section" style="margin-bottom:16px; border:1px solid #e5e7eb; border-radius:8px; overflow:hidden;">
                     <div class="category-header" data-cat="unclassified" style="background:#f9fafb; padding:12px 16px; display:flex; justify-content:space-between; align-items:center; cursor:pointer; font-weight:bold;">
@@ -70,9 +67,8 @@ function renderFoodList(container) {
                 </div>
             ` : ''}
 
-            <!-- ユーザー作成カテゴリセクション -->
             ${categories.map((cat, index) => {
-                const catItems = items.filter(i => i.category === cat);
+                const catItems = sortedItems.filter(i => i.category === cat);
                 return `
                     <div class="category-section" style="margin-bottom:16px; border:1px solid #e5e7eb; border-radius:8px; overflow:hidden;">
                         <div class="category-header" data-cat="${escapeHTML(cat)}" style="background:#f3f4f6; padding:12px 16px; display:flex; justify-content:space-between; align-items:center; cursor:pointer;">
@@ -99,47 +95,45 @@ function renderFoodList(container) {
         </div>
     `;
 
-    // --- 2. 再描画の直後：キャッシュに基づいて開いていたカテゴリを復元する ---
+    // 開いていたカテゴリのアコーディオンを復元
     openedCategoriesCache.forEach(catId => {
         const content = container.querySelector(`#cat-content-${CSS.escape(catId)}`);
         if (content) {
             content.style.display = 'block';
-            const header = content.previousElementSibling;
-            if (header) {
-                const arrow = header.querySelector('.accordion-arrow');
-                if (arrow) arrow.textContent = '▼';
-            }
+            const arrow = content.previousElementSibling?.querySelector('.accordion-arrow');
+            if (arrow) arrow.textContent = '▼';
         }
     });
 
-    container.querySelector('#btn-goto-food-reg').onclick = () => { currentSubView = 'register'; renderFoodTab(container); };
-    container.querySelector('#btn-delete-food').onclick = deleteSelectedFood;
-    container.querySelector('#btn-manage-categories').onclick = () => openCategoryManageModal('food', container);
+    // イベントバインド
+    container.querySelector('#btn-goto-food-reg').onclick = () => {
+        currentSubView = 'register';
+        renderFoodTab(container, appState);
+    };
+
+    container.querySelector('#btn-delete-food').onclick = () => deleteSelectedFood(appState);
+
+    container.querySelector('#btn-manage-categories').onclick = () => {
+        openCategoryManageModal('food', container);
+    };
 
     container.querySelectorAll('.btn-cat-move').forEach(btn => {
         btn.onclick = (e) => {
             e.stopPropagation();
-            const index = parseInt(btn.getAttribute('data-index'));
-            const dir = btn.getAttribute('data-dir');
-            moveCategory('food', index, dir, container);
+            moveCategory('food', parseInt(btn.getAttribute('data-index')), btn.getAttribute('data-dir'), container);
         };
     });
 
-    // アコーディオン開閉の切り替え
     container.querySelectorAll('.category-header').forEach(header => {
         header.onclick = (e) => {
-            if (e.target.closest('button') || e.target.closest('input')) return; 
+            if (e.target.closest('button')) return;
             const catName = header.getAttribute('data-cat');
             const content = container.querySelector(`#cat-content-${CSS.escape(catName)}`);
             const arrow = header.querySelector('.accordion-arrow');
             if (content) {
                 const isClosed = content.style.display === 'none';
                 content.style.display = isClosed ? 'block' : 'none';
-                if (arrow) {
-                    arrow.textContent = isClosed ? '▼' : '▶';
-                }
-
-                // 手動で開閉した状態をキャッシュ（openedCategoriesCache）にも反映・同期させる
+                if (arrow) arrow.textContent = isClosed ? '▼' : '▶';
                 if (isClosed) {
                     if (!openedCategoriesCache.includes(catName)) openedCategoriesCache.push(catName);
                 } else {
@@ -152,53 +146,40 @@ function renderFoodList(container) {
     container.querySelectorAll('.food-name-clickable').forEach(el => {
         el.onclick = (e) => {
             e.stopPropagation();
-            const id = el.getAttribute('data-id');
-            const currentCat = el.getAttribute('data-category');
-            openChangeCategoryModal(id, currentCat, 'food', container);
+            openChangeCategoryModal(el.getAttribute('data-id'), el.getAttribute('data-category'), 'food', container);
         };
     });
 
     container.querySelectorAll('.btn-cart').forEach(btn => {
         btn.onclick = (e) => {
             e.stopPropagation();
-            const buttonEl = e.target.closest('button');
-            if (!buttonEl) return;
-            toggleFoodFoodCartHelper(buttonEl.getAttribute('data-id'), container);
-        };
-    });
-
-    container.querySelectorAll('.food-checkbox').forEach(cb => {
-        cb.onclick = (e) => {
-            e.stopPropagation();
+            toggleFoodCartHelper(btn.getAttribute('data-id'), appState, btn);
         };
     });
 }
 
 function renderFoodRow(item) {
     const categoryDisplay = item.category ? escapeHTML(item.category) : '未設定';
-    
-    let alertClass = '';
-    if (item.expDate) {
-        const expTime = new Date(item.expDate.replace(/\//g, '-')).setHours(0, 0, 0, 0);
-        const today = new Date().setHours(0, 0, 0, 0);
-        const oneDay = 24 * 60 * 60 * 1000;
-        const diffDays = (expTime - today) / oneDay;
+    const expDate = item.expDate || '';
+    const regDate = item.regDate || '';
 
-        if (diffDays < 0) {
-            alertClass = 'expired';
-        } else if (diffDays < 2) {
-            alertClass = 'warning';
-        }
+    let alertClass = '';
+    if (expDate) {
+        const expTime = new Date(expDate.replace(/\//g, '-')).setHours(0, 0, 0, 0);
+        const today = new Date().setHours(0, 0, 0, 0);
+        const diffDays = (expTime - today) / (24 * 60 * 60 * 1000);
+        if (diffDays < 0) alertClass = 'expired';
+        else if (diffDays < 2) alertClass = 'warning';
     }
 
     return `
         <div class="list-item ${alertClass}">
-            <div class="col-name food-name-clickable" data-id="${item.id}" data-category="${escapeHTML(item.category || '')}" style="flex:2.2; cursor:pointer;" title="クリックしてカテゴリ変更">
+            <div class="col-name food-name-clickable" data-id="${item.id}" data-category="${escapeHTML(item.category || '')}" style="flex:2.2; cursor:pointer;">
                 <div style="font-weight:bold; color:var(--blue);">${escapeHTML(item.name)}</div>
                 <div style="font-size:10px; color:#6b7280;">📁 ${categoryDisplay}</div>
             </div>
-            <div class="col-sub" style="flex:1.6; text-align:center;">${item.expDate || 'なし'}</div>
-            <div class="col-sub" style="flex:1.1; text-align:center;">${item.regDate ? item.regDate.substring(5) : ''}</div>
+            <div class="col-sub" style="flex:1.6; text-align:center;">${expDate || 'なし'}</div>
+            <div class="col-sub" style="flex:1.1; text-align:center;">${regDate ? regDate.substring(5) : ''}</div>
             <div class="col-cart">
                 <button class="btn-cart ${item.needBuy ? 'active' : ''}" data-id="${item.id}">🛒</button>
             </div>
@@ -207,13 +188,12 @@ function renderFoodRow(item) {
     `;
 }
 
-function renderFoodRegister(container) {
-    const history = Storage.load('FOOD_HISTORY').sort();
-    const rawCategories = Storage.load('FOOD_CATEGORIES');
-    const categories = Array.isArray(rawCategories) ? rawCategories : [];
+function renderFoodRegister(container, appState) {
+    const history = appState.foodHistory;
+    const categories = appState.foodCategories;
 
     container.innerHTML = `
-        <button class="btn-outline" style="margin-bottom: 24px; width: auto; padding: 8px 16px;" id="btn-back-food">＜ 戻る</button>
+        <button class="btn-outline" style="margin-bottom:24px; width:auto; padding:8px 16px;" id="btn-back-food">＜ 戻る</button>
         <div class="form-group">
             <label>品名</label>
             <input type="text" id="input-food-name" placeholder="例: 牛乳" list="food-history" autocomplete="off">
@@ -234,75 +214,70 @@ function renderFoodRegister(container) {
             <input type="checkbox" id="input-food-nohistory" style="width:18px; height:18px;">
             <label for="input-food-nohistory" style="margin-bottom:0; font-weight:normal; cursor:pointer;">履歴（サジェスト）に残さない</label>
         </div>
-        <button class="btn-blue" style="width: 100%; padding: 16px;" id="btn-submit-food">登録する</button>
+        <button class="btn-blue" style="width:100%; padding:16px;" id="btn-submit-food">登録する</button>
     `;
 
-    const nameInput = container.querySelector('#input-food-name');
-    nameInput.addEventListener('input', (e) => {
-        if (/[\r\n]/.test(e.target.value)) {
-            e.target.value = e.target.value.replace(/[\r\n]+/g, '');
-        }
-    });
+    container.querySelector('#btn-back-food').onclick = () => {
+        currentSubView = 'list';
+        renderFoodTab(container, appState);
+    };
 
-    container.querySelector('#btn-back-food').onclick = () => { currentSubView = 'list'; renderFoodTab(container); };
-    container.querySelector('#btn-submit-food').onclick = () => {
+    container.querySelector('#btn-submit-food').onclick = async () => {
         const name = document.getElementById('input-food-name').value.trim();
         const expRaw = document.getElementById('input-food-exp').value;
         const category = document.getElementById('input-food-cat').value;
         const noHistory = document.getElementById('input-food-nohistory').checked;
         if (!name) return alert('品名を入力してください。');
 
-        let items = Storage.load('FOOD_LIST');
-        items.forEach(i => {
-            if (i.name === name) {
-                i.needBuy = false;
-                if (category) i.category = category;
+        if (!noHistory) {
+            let historyList = [...appState.foodHistory];
+            if (!historyList.includes(name)) {
+                historyList.push(name);
+                await updateAppState('foodHistory', historyList);
             }
-        });
+        }
+    
+        let items = [...appState.foodList];
         items.push({
-            id: Date.now().toString(), name,
+            id: Date.now().toString(),
+            name,
             expDate: expRaw ? expRaw.replace(/-/g, '/') : '',
             regDate: new Date().toLocaleDateString('ja-JP', {year:'numeric', month:'2-digit', day:'2-digit'}).replace(/-/g, '/'),
             category: category || null,
             needBuy: false
         });
-        Storage.save('FOOD_LIST', items);
 
-        if (!noHistory) {
-            let history = Storage.load('FOOD_HISTORY');
-            if (!history.includes(name)) {
-                history.push(name);
-                Storage.save('FOOD_HISTORY', history);
-            }
-        }
+        await updateAppState('foodList', items);
 
         if (confirm('登録しました。続けて商品を登録しますか？')) {
             document.getElementById('input-food-name').value = '';
             document.getElementById('input-food-exp').value = '';
+            document.getElementById('input-food-cat').focus();
             document.getElementById('input-food-nohistory').checked = false;
-            document.getElementById('input-food-name').focus();
         } else {
             currentSubView = 'list';
-            renderFoodTab(container);
+            renderFoodTab(container, appState);
         }
     };
 }
 
-function toggleFoodFoodCartHelper(id, container) {
-    let items = Storage.load('FOOD_LIST');
-    let item = items.find(i => i.id === id);
+async function toggleFoodCartHelper(id, appState, btnEl) {
+    let items = [...appState.foodList];
+    let item = items.find(i => String(i.id) === String(id));
     if (item) {
         item.needBuy = !item.needBuy;
-        Storage.save('FOOD_LIST', items);
-        renderFoodTab(container);
+        await updateAppState('foodList', items);
+        if (btnEl) btnEl.classList.toggle('active', item.needBuy);
     }
 }
 
-function deleteSelectedFood() {
-    const checked = Array.from(document.querySelectorAll('.food-checkbox:checked')).map(cb => cb.value);
+async function deleteSelectedFood(appState) {
+    const checked = Array.from(document.querySelectorAll('.food-checkbox:checked')).map(cb => String(cb.value));
     if (!checked.length) return alert('選択されていません。');
+
     if (confirm('選択した食品を削除しますか？')) {
-        Storage.save('FOOD_LIST', Storage.load('FOOD_LIST').filter(item => !checked.includes(item.id)));
-        renderFoodTab(document.getElementById('tab-food'));
+        let items = appState.foodList.filter(item => !checked.includes(String(item.id)));
+        await updateAppState('foodList', items);
+        renderCurrentTab();
     }
 }
