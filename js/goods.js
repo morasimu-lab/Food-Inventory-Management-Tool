@@ -43,8 +43,8 @@ function renderGoodsList(container) {
     container.innerHTML = `
         <div class="action-buttons">
             <button class="btn-blue" id="btn-goto-goods-reg">＋ 登録</button>
-            <button class="btn-outline" id="btn-manage-categories" style="width:auto; padding:8px 12px;">📁 カテゴリ管理</button>
             <button class="btn-red" id="btn-delete-goods">🗑 選択削除</button>
+            <button class="btn-outline" id="btn-manage-categories" style="width:auto; padding:8px 12px;">📁 カテゴリ管理</button>
         </div>
         <div>
             ${items.length === 0 ? '<div class="empty-message">在庫に登録されている日用品はありません</div>' : ''}
