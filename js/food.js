@@ -42,8 +42,8 @@ function renderFoodList(container, appState) {
     container.innerHTML = `
         <div class="action-buttons">
             <button class="btn-blue" id="btn-goto-food-reg">＋ 登録</button>
-            <button class="btn-red" id="btn-delete-food">🗑 選択削除</button>
             <button class="btn-outline" id="btn-manage-categories" style="width:auto; padding:8px 12px;">📁 カテゴリ管理</button>
+            <button class="btn-red" id="btn-delete-food">🗑 選択削除</button>
         </div>
         <div>
             ${sortedItems.length === 0 ? '<div class="empty-message">登録されている食品はありません</div>' : ''}
