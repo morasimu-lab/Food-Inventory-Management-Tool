@@ -2,24 +2,71 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>家庭用在庫管理ツール</title>
-    <link rel="stylesheet" href="./style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>データ移行ツール</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f3f4f6;
+        }
+        .card {
+            background: #ffffff;
+            padding: 32px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+        }
+        h1 {
+            font-size: 18px;
+            margin-top: 0;
+            margin-bottom: 12px;
+            color: #1f2937;
+        }
+        p {
+            font-size: 13px;
+            color: #6b7280;
+            margin-bottom: 24px;
+            line-height: 1.5;
+        }
+        .btn-migrate {
+            background-color: #2563eb;
+            color: #ffffff;
+            border: none;
+            padding: 14px 24px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+            transition: background-color 0.2s;
+        }
+        .btn-migrate:hover {
+            background-color: #1d4ed8;
+        }
+    </style>
 </head>
 <body>
 
-<div class="app-container">
-    <div class="main-nav">
-        <button class="btn-outline" id="nav-food" onclick="switchTab('food')">食品在庫</button>
-        <button class="btn-outline" id="nav-goods" onclick="switchTab('goods')">日用品在庫</button>
-        <button class="btn-outline" id="nav-shopping" onclick="switchTab('shopping')">買物リスト</button>
+    <div class="card">
+        <h1>スプレッドシートデータ移行</h1>
+        <p>このブラウザのローカルストレージに保存されている全データをGoogleスプレッドシートへ一括アップロードします。</p>
+        <button id="btn-start-migration" class="btn-migrate">移行を開始する</button>
     </div>
 
-    <div id="tab-food" class="tab-content"></div>
-    <div id="tab-goods" class="tab-content"></div>
-    <div id="tab-shopping" class="tab-content"></div>
-</div>
+    <script type="module">
+        import { migrateLocalDataToCloud } from './js/migrator.js';
 
-<script type="module" src="./js/main.js"></script>
+        document.getElementById('btn-start-migration').addEventListener('click', () => {
+            migrateLocalDataToCloud();
+        });
+    </script>
+
 </body>
 </html>
