@@ -16,18 +16,31 @@ let openedCategoriesCache = [];
 
 function getNormalizedHistory(history) {
     if (!history) return {};
+    const map = {};
+
     if (Array.isArray(history)) {
-        const map = {};
         history.forEach(item => {
             if (typeof item === 'string') {
                 map[item] = [];
             } else if (item && item.name) {
-                map[item.name] = item.subs || [];
+                map[item.name] = Array.isArray(item.subs) ? item.subs : [];
             }
         });
-        return map;
+    } else if (typeof history === 'object') {
+        // オブジェクト形式で保存されている過去データの互換性対応
+        Object.keys(history).forEach(key => {
+            const val = history[key];
+            if (Array.isArray(val)) {
+                map[key] = val;
+            } else if (typeof val === 'string' && val) {
+                map[key] = [val]; // 文字列なら配列化
+            } else {
+                map[key] = [];
+            }
+        });
     }
-    return history;
+
+    return map;
 }
 
 export function renderGoodsTab(container, appState) {
@@ -180,7 +193,11 @@ function renderGoodsList(container, appState) {
 }
 
 function renderGoodsRow(item, historyMap) {
-    const subNames = historyMap[item.name] || [];
+    // 配列でなければ空配列または配列化して取得する（エラー防止ガード）
+    const rawSub = historyMap[item.name];
+    const subNames = Array.isArray(rawSub) 
+        ? rawSub 
+        : (typeof rawSub === 'string' && rawSub ? [rawSub] : []);
     const categoryDisplay = item.category ? escapeHTML(item.category) : '未設定';
     const itemId = item.id != null ? String(item.id) : '';
     const quantity = item.quantity != null ? item.quantity : 0;
