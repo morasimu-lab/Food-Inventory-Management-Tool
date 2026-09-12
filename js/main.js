@@ -133,3 +133,13 @@ document.addEventListener('visibilitychange', () => {
         console.log('App moved to background');
     }
 });
+
+// 画面が非アクティブからアクティブになったら再読み込み
+document.addEventListener('visibilitychange', async () => {
+    // 画面がアクティブ（表示状態）になった瞬間
+    if (document.visibilityState === 'visible') {
+        console.log('画面が再表示されたため、最新データを同期します');
+        await loadInitialData(); // 初回読み込みで使っているデータ取得関数を再実行
+        renderCurrentTab();       // 画面再描画
+    }
+});
