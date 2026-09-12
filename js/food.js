@@ -60,15 +60,6 @@ function renderFoodList(container, appState) {
                         <span class="accordion-arrow">▶</span>
                     </div>
                     <div class="category-content" id="cat-content-unclassified" style="display:none;">
-                        <div class="list-header">
-                            <div class="col-add">追加</div>
-                            <div class="col-name">品名</div>
-                            <div class="col-sub">賞味期限</div>
-                            <div class="col-sub">登録日</div>
-                            <div class="col-qty">数量</div>
-                            <div class="col-cart">買</div>
-                            <div class="col-check">消</div>
-                        </div>
                         ${unclassifiedItems.map(item => renderFoodRow(item)).join('')}
                     </div>
                 </div>
@@ -87,15 +78,6 @@ function renderFoodList(container, appState) {
                             </div>
                         </div>
                         <div class="category-content" id="cat-content-${escapeHTML(cat)}" style="display:none;">
-                            <div class="list-header">
-                                <div class="col-add">追加</div>
-                                <div class="col-name">品名</div>
-                                <div class="col-sub">賞味期限</div>
-                                <div class="col-sub">登録日</div>
-                                <div class="col-qty">数量</div>
-                                <div class="col-cart">買</div>
-                                <div class="col-check">消</div>
-                            </div>
                             ${catItems.length === 0 
                                 ? '<div class="empty-message">カテゴリに登録された商品がありません。</div>' 
                                 : catItems.map(item => renderFoodRow(item)).join('')}
@@ -204,26 +186,33 @@ function renderFoodRow(item) {
     }
 
     return `
-        <div class="list-item ${alertClass}">
-            <div class="col-add">
-                <button class="btn-quick-add btn-qty" data-name="${escapeHTML(item.name)}" title="追加購入">＋</button>
+        <div class="list-item-card ${alertClass}">
+            <!-- 上段：品名・カテゴリ ＆ カート・追加 -->
+            <div class="card-row-top">
+                <div class="card-main-info">
+                    <input type="checkbox" class="food-checkbox" value="${item.id}">
+                    <div class="food-name-clickable" data-id="${item.id}" data-category="${escapeHTML(item.category || '')}">
+                        <span class="item-title">${escapeHTML(item.name)}</span>
+                        <span class="item-category-tag">📁 ${categoryDisplay}</span>
+                    </div>
+                </div>
+                <div class="card-actions">
+                    <button class="btn-cart ${item.needBuy ? 'active' : ''}" data-id="${item.id}">🛒</button>
+                    <button class="btn-quick-add btn-qty" data-name="${escapeHTML(item.name)}" title="追加購入">＋</button>
+                </div>
             </div>
-            <div class="col-name food-name-clickable" data-id="${item.id}" data-category="${escapeHTML(item.category || '')}">
-                <div class="item-title">${escapeHTML(item.name)}</div>
-                <div class="item-category-tag">📁 ${categoryDisplay}</div>
-            </div>
-            <div class="col-sub text-center">${expDate || 'なし'}</div>
-            <div class="col-sub text-center">${regDate ? regDate.substring(5) : ''}</div>
-            <div class="col-qty">
-                <button class="btn-qty-change btn-qty" data-id="${item.id}" data-delta="-1">-</button>
-                <span class="qty-num">${qty}</span>
-                <button class="btn-qty-change btn-qty" data-id="${item.id}" data-delta="1">+</button>
-            </div>
-            <div class="col-cart">
-                <button class="btn-cart ${item.needBuy ? 'active' : ''}" data-id="${item.id}">🛒</button>
-            </div>
-            <div class="col-check">
-                <input type="checkbox" class="food-checkbox" value="${item.id}">
+            
+            <!-- 下段：賞味期限・登録日 ＆ 数量操作 -->
+            <div class="card-row-bottom">
+                <div class="card-sub-info">
+                    ${expDate ? `<span class="info-badge exp-badge">期限日: ${expDate}</span>` : ''}
+                    ${regDate ? `<span class="info-badge">登録日: ${regDate.substring(5)}</span>` : ''}
+                </div>
+                <div class="card-qty-control">
+                    <button class="btn-qty-change btn-qty" data-id="${item.id}" data-delta="-1">-</button>
+                    <span class="qty-num">${qty}</span>
+                    <button class="btn-qty-change btn-qty" data-id="${item.id}" data-delta="1">+</button>
+                </div>
             </div>
         </div>
     `;
@@ -236,13 +225,14 @@ function renderFoodRegister(container, appState) {
 
     container.innerHTML = `
         <button class="btn-outline mb-24" id="btn-back-food">＜ 戻る</button>
-        <div class="form-group">
-            <label>品名</label>
-            <input type="text" id="input-food-name" value="${escapeHTML(initialName)}" placeholder="例: 牛乳" list="food-history" autocomplete="off">
-            <datalist id="food-history">${history.map(n => `<option value="${escapeHTML(n)}">`).join('')}</datalist>
+        <div class="form-group autocomplete-wrapper">
+            <label for="input-food-name">品名</label>
+            <input type="text" id="input-food-name" placeholder="例: 牛乳" autocomplete="off">
+            <!-- カスタムサジェスト表示用の枠 -->
+            <div id="food-autocomplete-list" class="autocomplete-list" style="display: none;"></div>
         </div>
         <div class="form-group">
-            <label>個数</label>
+            <label>数量</label>
             <input type="number" id="input-food-qty" value="1" min="0">
         </div>
         <div class="form-group">
@@ -262,6 +252,13 @@ function renderFoodRegister(container, appState) {
         </div>
         <button class="btn-blue btn-full" id="btn-submit-food">登録する</button>
     `;
+
+    
+    // === 初期化時の呼び出し例 ===
+    // 画面描画後に実行します
+    const foodInput = container.querySelector('#input-food-name');
+    const foodList = container.querySelector('#food-autocomplete-list');
+    setupAutocomplete(foodInput, foodList, appState.foodHistory || []);
 
     container.querySelector('#btn-back-food').onclick = () => {
         shortcutFoodName = '';
@@ -293,6 +290,13 @@ function renderFoodRegister(container, appState) {
         const regDateFormatted = `${yyyy}/${mm}/${dd}`;
 
         let items = [...(appState.foodList || [])];
+
+        // ▼ 追加：すでに同名の食品が存在する場合、既存データのカート(needBuy)をOFF(false)にする
+        items.forEach(item => {
+            if (item.name === name) {
+                item.needBuy = false;
+            }
+        });
 
         items.push({
             id: Date.now().toString(),
@@ -351,4 +355,50 @@ async function deleteSelectedFood(appState) {
         await updateAppState('foodList', items);
         renderCurrentTab();
     }
+}
+
+// サジェスト制御のセットアップ関数
+function setupAutocomplete(inputEl, listEl, historyArray) {
+    if (!inputEl || !listEl) return;
+
+    // リストの描画
+    function renderList(filterText = '') {
+        const query = filterText.trim().toLowerCase();
+        // 入力文字にヒットする履歴を抽出（空文字の場合は全履歴表示）
+        const matches = historyArray.filter(item => 
+            !query || item.toLowerCase().includes(query)
+        );
+
+        if (matches.length === 0) {
+            listEl.style.display = 'none';
+            return;
+        }
+
+        listEl.innerHTML = matches.map(item => `
+            <div class="autocomplete-item" data-value="${escapeHTML(item)}">
+                ${escapeHTML(item)}
+            </div>
+        `).join('');
+        listEl.style.display = 'block';
+    }
+
+    // フォーカス時および入力時にリストを表示
+    inputEl.addEventListener('focus', () => renderList(inputEl.value));
+    inputEl.addEventListener('input', () => renderList(inputEl.value));
+
+    // リスト項目タップ時の処理（iPhone対策として mousedown を使用）
+    listEl.addEventListener('mousedown', (e) => {
+        const itemEl = e.target.closest('.autocomplete-item');
+        if (itemEl) {
+            inputEl.value = itemEl.dataset.value;
+            listEl.style.display = 'none';
+        }
+    });
+
+    // 枠外をタップしたらリストを閉じる
+    document.addEventListener('click', (e) => {
+        if (!inputEl.contains(e.target) && !listEl.contains(e.target)) {
+            listEl.style.display = 'none';
+        }
+    });
 }
