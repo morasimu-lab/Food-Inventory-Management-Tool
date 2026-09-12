@@ -1,13 +1,53 @@
-:root { --blue: #2563eb; --red: #ef4444; --cart: #f59e0b; --border: #e5e7eb; --text-main: #1f2937; --bg: #ffffff; }
-* { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
-body { background-color: #f9fafb; color: var(--text-main); }
-.app-container { max-width: 600px; margin: 0 auto; background: var(--bg); min-height: 100vh; display: flex; flex-direction: column; }
+:root {
+    --blue: #2563eb;
+    --red: #ef4444;
+    --cart: #f59e0b;
+    --border: #e5e7eb;
+    --text-main: #1f2937;
+    --bg: #ffffff;
+}
 
-button { border: none; border-radius: 8px; padding: 12px; font-weight: bold; font-size: 14px; cursor: pointer; color: white; display: flex; align-items: center; justify-content: center; gap: 4px; }
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+body {
+    background-color: #f9fafb;
+    color: var(--text-main);
+}
+
+.app-container {
+    max-width: 600px;
+    margin: 0 auto;
+    background: var(--bg);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* --- ボタン基本デザイン --- */
+button {
+    border: none;
+    border-radius: 8px;
+    padding: 12px;
+    font-weight: bold;
+    font-size: 14px;
+    cursor: pointer;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+}
+
 .btn-blue { background-color: var(--blue); }
 .btn-red { background-color: var(--red); }
 .btn-outline { background-color: transparent; border: 1px solid var(--border); color: var(--text-main); }
-/* 🛒 や 🗑 などのアイコンボタン用の共通クラスを追加 */
+
+/* アイコン用・削除ボタン */
 .btn-icon {
     background: transparent !important;
     color: inherit !important;
@@ -17,7 +57,6 @@ button { border: none; border-radius: 8px; padding: 12px; font-weight: bold; fon
     cursor: pointer;
 }
 
-/* 削除ボタン（ゴミ箱）の色や見た目を調整する場合 */
 .btn-delete-cart, .btn-delete-small {
     background: transparent;
     color: var(--red);
@@ -27,7 +66,27 @@ button { border: none; border-radius: 8px; padding: 12px; font-weight: bold; fon
     cursor: pointer;
 }
 
-/* モバイルの横幅でも綺麗に収まるようにナビゲーションを調整 */
+/* 【追加】個数変更（＋/－）や追加購入（＋）で使う共通正方形ボタン */
+.btn-square, .btn-qty-change, .btn-quick-add {
+    width: 24px;
+    height: 24px;
+    border: 1px solid #d1d5db;
+    background: #ffffff;
+    color: #374151;
+    border-radius: 4px;
+    font-weight: bold;
+    cursor: pointer;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+}
+.btn-square:hover, .btn-qty-change:hover, .btn-quick-add:hover {
+    background-color: #f3f4f6;
+}
+
+/* --- ナビゲーション・アクションボタン --- */
 .main-nav { display: flex; gap: 2px; padding: 8px; border-bottom: 1px solid var(--border); background: var(--bg); }
 .main-nav button { flex: 1; padding: 10px 2px; font-size: 11px; text-align: center; white-space: nowrap; border-radius: 6px; }
 
@@ -35,41 +94,137 @@ button { border: none; border-radius: 8px; padding: 12px; font-weight: bold; fon
 .tab-content.active { display: block; }
 
 .action-buttons { display: flex; gap: 12px; margin-bottom: 16px; }
-.action-buttons button:nth-child(1) { flex: 2; }
-.action-buttons button:nth-child(2) { flex: 3; }
-.action-buttons button:nth-child(3) { flex: 3; }
+.action-buttons button:nth-child(1) { flex: 1; }
+.action-buttons button:nth-child(2) { flex: 1; }
+.action-buttons button:nth-child(3) { flex: 2; }
+.action-buttons button:nth-child(4) { flex: 2; }
 
-.list-header, .list-item { display: flex; align-items: center; padding: 12px 2px; border-bottom: 1px solid var(--border); font-size: 13px; }
-.list-header { font-weight: bold; border-bottom: 2px solid var(--border); background-color: var(--bg); position: sticky; top: 0; font-size: 12px; color: #4b5563; }
-
-/* 賞味期限アラート用の行背景色 */
-.list-item.expired {
-    background-color: #fee2e2 !important; /* 薄い赤 */
+/* --- リスト表示スタイル --- */
+.list-header, .list-item {
+    display: flex;
+    align-items: center;
+    padding: 10px 8px;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+    gap: 6px;
 }
-.list-item.warning {
-    background-color: #fef3c7 !important; /* 薄い黄色 */
+.list-header {
+    font-weight: bold;
+    border-bottom: 2px solid var(--border);
+    background-color: #f9fafb;
+    position: sticky;
+    top: 0;
+    font-size: 12px;
+    color: #4b5563;
 }
 
+/* リスト各列のレイアウト */
+.col-add { width: 28px; text-align: center; }
 .col-name { flex: 3.3; word-break: break-all; padding-right: 4px; }
 .col-sub { flex: 2.2; word-break: break-all; color: #6b7280; font-size: 12px; padding-right: 4px; }
-.col-cart, .col-check { flex: 0.5; display: flex; justify-content: center; }
+.col-cart, .col-check { width: 35px; display: flex; justify-content: center; }
 
+/* 【追加】個数コントローラー列 */
+.col-qty {
+    width: 90px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+}
+.qty-num {
+    min-width: 20px;
+    text-align: center;
+    font-weight: bold;
+    font-size: 14px;
+}
+
+/* 【追加】品名表示・バッジ装飾 */
+.item-name-clickable {
+    cursor: pointer;
+}
+.item-name-clickable .item-title {
+    font-weight: bold;
+    color: var(--blue);
+}
+.item-category-tag {
+    font-size: 9px;
+    color: #6b7280;
+}
+
+/* 賞味期限アラート用の行背景色 */
+.list-item.expired { background-color: #fee2e2 !important; }
+.list-item.warning { background-color: #fef3c7 !important; }
+
+/* チェックボックス・カートアイコン */
 input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--blue); }
 .btn-cart { background: transparent; border: none; font-size: 18px; color: var(--cart); padding: 4px; cursor: pointer; }
 .btn-cart:not(.active) { filter: grayscale(100%); opacity: 0.2; }
 
+/* --- フォーム関連 --- */
 .form-group { margin-bottom: 20px; }
 .form-group label { display: block; margin-bottom: 8px; font-weight: bold; font-size: 14px; }
-.form-group input { width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 16px; }
+/* input / select 共通化 */
+.form-group input, .form-group select {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 15px;
+    background: #ffffff;
+}
+/* チェックボックス専用グループ（横並び・垂直中央揃え） */
+.form-group.checkbox-group {
+    display: flex;
+    align-items: center;
+    gap: 8px; /* チェックボックスと文字の間隔 */
+    margin-top: 12px;
+    margin-bottom: 20px;
+}
 
+/* チェックボックスグループ内のラベル設定を上書き */
+.form-group.checkbox-group label {
+    display: inline-block;
+    margin-bottom: 0;
+    font-weight: normal;
+    font-size: 14px;
+    color: #333;
+    cursor: pointer;
+    user-select: none;
+}
+
+/* チェックボックス自体のサイズと余白リセット */
+.form-group.checkbox-group input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    cursor: pointer;
+    flex-shrink: 0; /* サイズ縮小を防止 */
+}
+
+/* --- 買い物リスト・メッセージ --- */
 .shopping-item { display: flex; justify-content: space-between; align-items: center; padding: 16px 8px; border-bottom: 1px solid var(--border); font-size: 16px; }
-.btn-delete-small { background-color: transparent; color: var(--red); font-size: 18px; padding: 8px; }
-
 .empty-message { text-align: center; padding: 30px; color: #6b7280; font-size: 14px; }
 
-/* カテゴリ管理・並び替え関連のスタイル追加 */
-.category-header button {
-    color: var(--text-main);
+/* --- カテゴリ管理・アコーディオン --- */
+.category-section {
+    margin-bottom: 16px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+}
+.category-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 12px;
+    background-color: #f5f5f5;
+    cursor: pointer;
+    user-select: none;
+}
+
+.category-header.unclassified {
+    background: #f9fafb;
 }
 
 .category-header .btn-cat-move {
@@ -80,8 +235,21 @@ input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--blue); }
     padding: 2px 6px;
     font-size: 11px;
 }
-
 .category-header .btn-cat-move:disabled {
     opacity: 0.3;
     cursor: not-allowed;
+}
+
+.accordion-arrow {
+    display: inline-block;
+    width: 16px;
+    text-align: center;
+    margin-left: 4px;
+}
+
+/* 上下ボタンと矢印を必ず横並びにする */
+.category-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px; /* ボタン同士の間隔 */
 }
