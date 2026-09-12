@@ -1,68 +1,74 @@
-import { Storage, escapeHTML } from './storage.js';
+// goods.js
+
+import { escapeHTML } from './storage.js';
+import { updateAppState, renderCurrentTab } from './main.js';
 import { moveCategory, openCategoryManageModal, openChangeCategoryModal } from './categoryModal.js';
 
 let currentSubView = 'list';
-window.resetGoodsSubView = () => { currentSubView = 'list'; };
+let registerInitialName = ''; // 追加購入時の品名引き継ぎ用
 
-// パターンB用：現在開いているカテゴリ名を一時的に保持する変数
+window.resetGoodsSubView = () => { 
+    currentSubView = 'list'; 
+    registerInitialName = '';
+};
+
 let openedCategoriesCache = [];
 
-export function renderGoodsTab(container) {
+function getNormalizedHistory(history) {
+    if (!history) return {};
+    if (Array.isArray(history)) {
+        const map = {};
+        history.forEach(item => {
+            if (typeof item === 'string') {
+                map[item] = [];
+            } else if (item && item.name) {
+                map[item.name] = item.subs || [];
+            }
+        });
+        return map;
+    }
+    return history;
+}
+
+export function renderGoodsTab(container, appState) {
     if (currentSubView === 'list') {
-        renderGoodsList(container);
+        renderGoodsList(container, appState);
     } else {
-        renderGoodsRegister(container);
+        renderGoodsRegister(container, appState, registerInitialName);
     }
 }
 
-function renderGoodsList(container) {
-    // --- 1. 再描画の直前：現在開いているアコーディオンを調べる ---
+function renderGoodsList(container, appState) {
     const currentlyOpened = [];
     container.querySelectorAll('.category-content').forEach(content => {
         if (content.style.display === 'block') {
-            const catId = content.id.replace('cat-content-', '');
-            currentlyOpened.push(catId);
+            currentlyOpened.push(content.id.replace('cat-content-', ''));
         }
     });
-    if (currentlyOpened.length > 0) {
-        openedCategoriesCache = currentlyOpened;
-    }
+    if (currentlyOpened.length > 0) openedCategoriesCache = currentlyOpened;
 
-    const rawHistory = Storage.load('GOODS_HISTORY');
-    const historyMap = getNormalizedHistory(rawHistory);
-    
-    const rawItems = Storage.load('GOODS_LIST');
-    const items = Array.isArray(rawItems) ? rawItems : [];
+    const historyMap = getNormalizedHistory(appState.goodsHistory);
+    const items = appState.goodsList || [];
+    const categories = appState.goodsCategories || [];
 
-    const rawCategories = Storage.load('GOODS_CATEGORIES');
-    const categories = Array.isArray(rawCategories) ? rawCategories : [];
-
-    // 未分類アイテムの抽出
     const unclassifiedItems = items.filter(i => !i.category || !categories.includes(i.category));
 
     container.innerHTML = `
         <div class="action-buttons">
             <button class="btn-blue" id="btn-goto-goods-reg">＋ 登録</button>
             <button class="btn-red" id="btn-delete-goods">🗑 選択削除</button>
-            <button class="btn-outline" id="btn-manage-categories" style="width:auto; padding:8px 12px;">📁 カテゴリ管理</button>
+            <button class="btn-outline" id="btn-manage-categories">📁 カテゴリ管理</button>
         </div>
         <div>
             ${items.length === 0 ? '<div class="empty-message">在庫に登録されている日用品はありません</div>' : ''}
 
-            <!-- 未分類セクション -->
             ${unclassifiedItems.length > 0 ? `
-                <div class="category-section" style="margin-bottom:16px; border:1px solid #e5e7eb; border-radius:8px; overflow:hidden;">
-                    <div class="category-header" data-cat="unclassified" style="background:#f9fafb; padding:12px 16px; display:flex; justify-content:space-between; align-items:center; cursor:pointer; font-weight:bold;">
-                        <span>未分類 (${unclassifiedItems.length})</span>
+                <div class="category-section">
+                    <div class="category-header" data-cat="unclassified">
+                        <span class="category-title">未分類 (${unclassifiedItems.length})</span>
                         <span class="accordion-arrow">▶</span>
                     </div>
                     <div class="category-content" id="cat-content-unclassified" style="display:none;">
-                        <div class="list-header">
-                            <div class="col-name">品名</div>
-                            <div class="col-sub">商品名（銘柄等）</div>
-                            <div class="col-cart">買</div>
-                            <div class="col-check">消</div>
-                        </div>
                         ${unclassifiedItems.map(item => renderGoodsRow(item, historyMap)).join('')}
                     </div>
                 </div>
@@ -71,23 +77,19 @@ function renderGoodsList(container) {
             ${categories.map((cat, index) => {
                 const catItems = items.filter(i => i.category === cat);
                 return `
-                    <div class="category-section" style="margin-bottom:16px; border:1px solid #e5e7eb; border-radius:8px; overflow:hidden;">
-                        <div class="category-header" data-cat="${escapeHTML(cat)}" style="background:#f3f4f6; padding:12px 16px; display:flex; justify-content:space-between; align-items:center; cursor:pointer;">
-                            <span style="font-weight:bold;">${escapeHTML(cat)} (${catItems.length})</span>
-                            <div style="display:flex; align-items:center; gap:8px;">
-                                <button class="btn-cat-move" data-index="${index}" data-dir="up" ${index === 0 ? 'disabled style="opacity:0.3;"' : ''} style="padding:2px 6px; font-size:12px;">▲</button>
-                                <button class="btn-cat-move" data-index="${index}" data-dir="down" ${index === categories.length - 1 ? 'disabled style="opacity:0.3;"' : ''} style="padding:2px 6px; font-size:12px;">▼</button>
+                    <div class="category-section">
+                        <div class="category-header" data-cat="${escapeHTML(cat)}">
+                            <span class="category-title">${escapeHTML(cat)} (${catItems.length})</span>
+                            <div class="category-actions">
+                                <button class="btn-cat-move" data-index="${index}" data-dir="up" ${index === 0 ? 'disabled' : ''}>▲</button>
+                                <button class="btn-cat-move" data-index="${index}" data-dir="down" ${index === categories.length - 1 ? 'disabled' : ''}>▼</button>
                                 <span class="accordion-arrow">▶</span>
                             </div>
                         </div>
                         <div class="category-content" id="cat-content-${escapeHTML(cat)}" style="display:none;">
-                            <div class="list-header">
-                                <div class="col-name">品名</div>
-                                <div class="col-sub">商品名（銘柄等）</div>
-                                <div class="col-cart">買</div>
-                                <div class="col-check">消</div>
-                            </div>
-                            ${catItems.length === 0 ? '<div class="empty-message" style="padding:12px; font-size:13px; color:#6b7280;">このカテゴリの品はありません</div>' : catItems.map(item => renderGoodsRow(item, historyMap)).join('')}
+                            ${catItems.length === 0 
+                                ? '<div class="empty-message">このカテゴリの品はありません</div>' 
+                                : catItems.map(item => renderGoodsRow(item, historyMap)).join('')}
                         </div>
                     </div>
                 `;
@@ -95,7 +97,7 @@ function renderGoodsList(container) {
         </div>
     `;
 
-    // --- 2. 再描画の直後：キャッシュに基づいて開いていたカテゴリを復元する ---
+    // アコーディオン状態復元
     openedCategoriesCache.forEach(catId => {
         const content = container.querySelector(`#cat-content-${CSS.escape(catId)}`);
         if (content) {
@@ -108,35 +110,42 @@ function renderGoodsList(container) {
         }
     });
 
-    container.querySelector('#btn-goto-goods-reg').onclick = () => { currentSubView = 'register'; renderGoodsTab(container); };
-    container.querySelector('#btn-delete-goods').onclick = deleteSelectedGoods;
+    // イベントバインド
+    container.querySelector('#btn-goto-goods-reg').onclick = () => { 
+        registerInitialName = '';
+        currentSubView = 'register'; 
+        renderGoodsTab(container, appState); 
+    };
+    container.querySelector('#btn-delete-goods').onclick = () => deleteSelectedGoods(appState);
     container.querySelector('#btn-manage-categories').onclick = () => openCategoryManageModal('goods', container);
 
-    // カテゴリの並び替えボタン
-    container.querySelectorAll('.btn-cat-move').forEach(btn => {
-        btn.onclick = (e) => {
-            e.stopPropagation();
-            const index = parseInt(btn.getAttribute('data-index'));
-            const dir = btn.getAttribute('data-dir');
-            moveCategory('goods', index, dir, container);
+    // 追加購入ショートカットボタン
+    container.querySelectorAll('.btn-quick-add').forEach(btn => {
+        btn.onclick = () => {
+            registerInitialName = btn.getAttribute('data-name');
+            currentSubView = 'register';
+            renderGoodsTab(container, appState);
         };
     });
 
-    // アコーディオン開閉の切り替え
+    container.querySelectorAll('.btn-cat-move').forEach(btn => {
+        btn.onclick = (e) => {
+            e.stopPropagation();
+            moveCategory('goods', parseInt(btn.getAttribute('data-index')), btn.getAttribute('data-dir'), container);
+        };
+    });
+
     container.querySelectorAll('.category-header').forEach(header => {
         header.onclick = (e) => {
-            if (e.target.closest('button')) return; // ボタン押下時は開閉させない
+            if (e.target.closest('button')) return;
             const catName = header.getAttribute('data-cat');
             const content = container.querySelector(`#cat-content-${CSS.escape(catName)}`);
             const arrow = header.querySelector('.accordion-arrow');
             if (content) {
                 const isClosed = content.style.display === 'none';
                 content.style.display = isClosed ? 'block' : 'none';
-                if (arrow) {
-                    arrow.textContent = isClosed ? '▼' : '▶';
-                }
+                if (arrow) arrow.textContent = isClosed ? '▼' : '▶';
 
-                // 手動での開閉状態をキャッシュに反映・同期させる
                 if (isClosed) {
                     if (!openedCategoriesCache.includes(catName)) openedCategoriesCache.push(catName);
                 } else {
@@ -147,54 +156,85 @@ function renderGoodsList(container) {
     });
 
     container.querySelectorAll('.goods-name-clickable').forEach(el => {
-        el.onclick = () => {
-            const name = el.getAttribute('data-name');
-            const currentCat = el.getAttribute('data-category');
-            openChangeCategoryModal(name, currentCat, 'goods', container);
+        el.onclick = () => openChangeCategoryModal(el.getAttribute('data-name'), el.getAttribute('data-category'), 'goods', container);
+    });
+
+    // カートボタン
+    container.querySelectorAll('.btn-cart').forEach(btn => {
+        btn.onclick = (e) => {
+            const id = e.currentTarget.getAttribute('data-id');
+            const name = e.currentTarget.getAttribute('data-name');
+            toggleGoodsCart(id, name, appState, e.currentTarget);
         };
     });
 
-    container.querySelectorAll('.btn-cart').forEach(btn => {
-        btn.onclick = (e) => toggleGoodsCart(e.target.getAttribute('data-id'), container);
+    // 個数変更（＋ / －）ボタン
+    container.querySelectorAll('.btn-qty-change').forEach(btn => {
+        btn.onclick = (e) => {
+            const id = btn.getAttribute('data-id');
+            const name = btn.getAttribute('data-name');
+            const delta = parseInt(btn.getAttribute('data-delta'), 10);
+            changeGoodsQuantity(id, name, delta, appState);
+        };
     });
 }
 
 function renderGoodsRow(item, historyMap) {
     const subNames = historyMap[item.name] || [];
     const categoryDisplay = item.category ? escapeHTML(item.category) : '未設定';
+    const itemId = item.id != null ? String(item.id) : '';
+    const quantity = item.quantity != null ? item.quantity : 0;
+
     return `
-        <div class="list-item">
-            <div class="col-name goods-name-clickable" data-name="${escapeHTML(item.name)}" data-category="${escapeHTML(item.category || '')}" style="cursor:pointer;" title="クリックしてカテゴリ変更">
-                <div style="font-weight:bold; color:var(--blue);">${escapeHTML(item.name)}</div>
-                <div style="font-size:10px; color:#6b7280;">📁 ${categoryDisplay}</div>
+        <div class="list-item-card">
+            <!-- 上段：品名・カテゴリ ＆ カート・追加 -->
+            <div class="card-row-top">
+                <div class="card-main-info">
+                    <input type="checkbox" class="goods-checkbox" value="${escapeHTML(item.name)}">
+                    <div class="goods-name-clickable" data-name="${escapeHTML(item.name)}" data-category="${escapeHTML(item.category || '')}">
+                        <span class="item-title">${escapeHTML(item.name)}</span>
+                        <span class="item-category-tag">📁 ${categoryDisplay}</span>
+                    </div>
+                </div>
+                <div class="card-actions">
+                    <button class="btn-cart ${item.needBuy ? 'active' : ''}" data-id="${escapeHTML(itemId)}" data-name="${escapeHTML(item.name)}">🛒</button>
+                    <button class="btn-quick-add btn-qty" data-name="${escapeHTML(item.name)}" title="この品名で追加登録">＋</button>
+                </div>
             </div>
-            <div class="col-sub">
-                ${subNames.length > 0 
-                    ? subNames.map(sub => `<span style="margin-right:8px; display:inline-block;">${escapeHTML(sub)}</span>`).join('') 
-                    : '<span style="color:var(--text-light);">なし</span>'}
+
+            <!-- 下段：銘柄タグ ＆ 数量操作 -->
+            <div class="card-row-bottom">
+                <div class="card-sub-info">
+                    ${subNames.length > 0 
+                        ? subNames.map(sub => `<span class="sub-tag">${escapeHTML(sub)}</span>`).join('') 
+                        : '<span class="text-light">銘柄なし</span>'}
+                </div>
+                <div class="card-qty-control">
+                    <button class="btn-qty-change btn-qty" data-id="${escapeHTML(itemId)}" data-name="${escapeHTML(item.name)}" data-delta="-1">-</button>
+                    <span class="qty-num">${quantity}</span>
+                    <button class="btn-qty-change btn-qty" data-id="${escapeHTML(itemId)}" data-name="${escapeHTML(item.name)}" data-delta="1">+</button>
+                </div>
             </div>
-            <div class="col-cart">
-                <button class="btn-cart ${item.needBuy ? 'active' : ''}" data-id="${item.id}">🛒</button>
-            </div>
-            <div class="col-check"><input type="checkbox" class="goods-checkbox" value="${escapeHTML(item.name)}"></div>
         </div>
     `;
 }
 
-function renderGoodsRegister(container) {
-    const rawHistory = Storage.load('GOODS_HISTORY');
-    const historyMap = getNormalizedHistory(rawHistory);
+function renderGoodsRegister(container, appState, initialName = '') {
+    const historyMap = getNormalizedHistory(appState.goodsHistory);
     const historyNames = Object.keys(historyMap);
-    
-    const rawCategories = Storage.load('GOODS_CATEGORIES');
-    const categories = Array.isArray(rawCategories) ? rawCategories : [];
+    const categories = appState.goodsCategories || [];
 
     container.innerHTML = `
-        <button class="btn-outline" style="margin-bottom: 24px; width: auto; padding: 8px 16px;" id="btn-back-goods">＜ 戻る</button>
+        <button class="btn-outline mb-24" id="btn-back-goods">＜ 戻る</button>
+        <div class="form-group autocomplete-wrapper">
+            <label for="input-goods-name">品名</label>
+            <input type="text" id="input-goods-name" placeholder="例: シャンプー" autocomplete="off">
+            <!-- カスタムサジェスト表示用の枠 -->
+            <div id="goods-autocomplete-list" class="autocomplete-list" style="display: none;"></div>
+        </div>
         <div class="form-group">
-            <label>品名</label>
-            <input type="text" id="input-goods-name" placeholder="例: シャンプー" list="goods-history" autocomplete="off">
-            <datalist id="goods-history">${historyNames.map(n => `<option value="${escapeHTML(n)}">`).join('')}</datalist>
+            <label>数量</label>
+            <input type="number" id="input-goods-quantity" value="1" min="0">
         </div>
         <div class="form-group">
             <label>商品名（銘柄など / 複数の場合はカンマ区切り）</label>
@@ -202,34 +242,34 @@ function renderGoodsRegister(container) {
         </div>
         <div class="form-group">
             <label>カテゴリ</label>
-            <select id="input-goods-cat" style="width:100%; padding:10px; border:1px solid #d1d5db; border-radius:6px; background:white;">
+            <select id="input-goods-cat">
                 <option value="">（未設定）</option>
                 ${categories.map(c => `<option value="${escapeHTML(c)}">${escapeHTML(c)}</option>`).join('')}
             </select>
         </div>
-        <div class="form-group" style="display:flex; align-items:center; gap:8px;">
-            <input type="checkbox" id="input-goods-nohistory" style="width:18px; height:18px;">
-            <label for="input-goods-nohistory" style="margin-bottom:0; font-weight:normal; cursor:pointer;">履歴（サジェスト）に残さない</label>
+        <div class="form-group checkbox-group">
+            <input type="checkbox" id="input-goods-nohistory">
+            <label for="input-goods-nohistory">履歴に残さないで登録（在庫から削除しても買い物リストに現れません）</label>
         </div>
-        <button class="btn-blue" style="width: 100%; padding: 16px;" id="btn-submit-goods">登録する</button>
+        <button class="btn-blue btn-full" id="btn-submit-goods">登録する</button>
     `;
 
-    const nameInput = container.querySelector('#input-goods-name');
-    const subInput = container.querySelector('#input-goods-sub');
+    // === 初期化時の呼び出し例 ===
+    // 画面描画後に実行します
+    const goodsInput = container.querySelector('#input-goods-name');
+    const goodsList = container.querySelector('#goods-autocomplete-list');
+    setupAutocomplete(goodsInput, goodsList, historyNames);
 
-    [nameInput, subInput].forEach(input => {
-        if (input) {
-            input.addEventListener('input', (e) => {
-                if (/[\r\n]/.test(e.target.value)) {
-                    e.target.value = e.target.value.replace(/[\r\n]+/g, '');
-                }
-            });
-        }
-    });
+    container.querySelector('#btn-back-goods').onclick = () => { 
+        currentSubView = 'list'; 
+        registerInitialName = '';
+        renderGoodsTab(container, appState); 
+    };
 
-    container.querySelector('#btn-back-goods').onclick = () => { currentSubView = 'list'; renderGoodsTab(container); };
-    container.querySelector('#btn-submit-goods').onclick = () => {
+    container.querySelector('#btn-submit-goods').onclick = async () => {
         const name = document.getElementById('input-goods-name').value.trim();
+        const quantityVal = parseInt(document.getElementById('input-goods-quantity').value, 10);
+        const addQuantity = isNaN(quantityVal) ? 0 : Math.max(0, quantityVal);
         const subRaw = document.getElementById('input-goods-sub').value.trim();
         const category = document.getElementById('input-goods-cat').value;
         const noHistory = document.getElementById('input-goods-nohistory').checked;
@@ -240,85 +280,121 @@ function renderGoodsRegister(container) {
         if (!noHistory) {
             let historyObj = historyMap;
             if (!historyObj[name]) historyObj[name] = [];
-            
             newSubs.forEach(sub => {
-                if (!historyObj[name].includes(sub)) {
-                    historyObj[name].push(sub);
-                }
+                if (!historyObj[name].includes(sub)) historyObj[name].push(sub);
             });
-
             const newHistoryArray = Object.keys(historyObj).map(n => ({ name: n, subs: historyObj[n] }));
-            Storage.save('GOODS_HISTORY', newHistoryArray);
+            await updateAppState('goodsHistory', newHistoryArray);
         }
 
-        let rawItems = Storage.load('GOODS_LIST');
-        let items = Array.isArray(rawItems) ? rawItems : [];
+        let items = [...(appState.goodsList || [])];
         let targetItem = items.find(i => i.name === name);
         
         if (targetItem) {
             targetItem.needBuy = false;
+            targetItem.quantity = (targetItem.quantity != null ? targetItem.quantity : 0) + addQuantity;
             if (category) targetItem.category = category;
         } else {
             items.push({
                 id: Date.now().toString(),
                 name,
+                quantity: addQuantity,
                 category: category || null,
                 needBuy: false
             });
         }
-        Storage.save('GOODS_LIST', items);
 
-        if (confirm('登録しました。続けて商品を登録しますか？')) {
+        await updateAppState('goodsList', items);
+
+        if (confirm('登録しました。続けて日用品を登録しますか？')) {
+            registerInitialName = '';
             document.getElementById('input-goods-name').value = '';
+            document.getElementById('input-goods-quantity').value = '1';
             document.getElementById('input-goods-sub').value = '';
             document.getElementById('input-goods-nohistory').checked = false;
             document.getElementById('input-goods-name').focus();
         } else {
+            registerInitialName = '';
             currentSubView = 'list';
-            renderGoodsTab(container);
+            renderGoodsTab(container, appState);
         }
     };
 }
 
-function getNormalizedHistory(rawHistory) {
-    const map = {};
-    if (!Array.isArray(rawHistory)) return map;
-
-    rawHistory.forEach(item => {
-        if (typeof item === 'string') {
-            if (!map[item]) map[item] = [];
-        } else if (item && typeof item === 'object' && item.name) {
-            if (!map[item.name]) map[item.name] = [];
-            if (Array.isArray(item.subs)) {
-                item.subs.forEach(s => {
-                    if (!map[item.name].includes(s)) map[item.name].push(s);
-                });
-            }
-        }
-    });
-    return map;
+async function changeGoodsQuantity(id, name, delta, appState) {
+    let items = [...(appState.goodsList || [])];
+    let item = items.find(i => (id && String(i.id) === String(id)) || i.name === name);
+    if (item) {
+        const currentQty = item.quantity != null ? item.quantity : 0;
+        item.quantity = Math.max(0, currentQty + delta);
+        await updateAppState('goodsList', items);
+        renderCurrentTab();
+    }
 }
 
-function toggleGoodsCart(id, container) {
-    let rawItems = Storage.load('GOODS_LIST');
-    let items = Array.isArray(rawItems) ? rawItems : [];
-    let item = items.find(i => i.id === id);
+async function toggleGoodsCart(id, name, appState, btnEl) {
+    let items = [...(appState.goodsList || [])];
+    let item = items.find(i => (id && String(i.id) === String(id)) || i.name === name);
     if (item) {
         item.needBuy = !item.needBuy;
-        Storage.save('GOODS_LIST', items);
-        renderGoodsTab(container);
+        await updateAppState('goodsList', items);
+        if (btnEl) btnEl.classList.toggle('active', item.needBuy);
     }
 }
 
-function deleteSelectedGoods() {
+async function deleteSelectedGoods(appState) {
     const checked = Array.from(document.querySelectorAll('.goods-checkbox:checked')).map(cb => cb.value);
     if (!checked.length) return alert('選択されていません。');
-    
-    if (confirm('選択した日用品を在庫リストから削除しますか？')) {
-        let rawItems = Storage.load('GOODS_LIST');
-        let items = Array.isArray(rawItems) ? rawItems : [];
-        Storage.save('GOODS_LIST', items.filter(item => !checked.includes(item.name)));
-        
-        renderGoodsTab(document.getElementById('tab-goods'));
+
+    if (confirm('選択した日用品を削除しますか？')) {
+        let items = (appState.goodsList || []).filter(item => !checked.includes(item.name));
+        await updateAppState('goodsList', items);
+        renderCurrentTab();
     }
+}
+
+// サジェスト制御のセットアップ関数
+function setupAutocomplete(inputEl, listEl, historyArray) {
+    if (!inputEl || !listEl) return;
+
+    // リストの描画
+    function renderList(filterText = '') {
+        const query = filterText.trim().toLowerCase();
+        // 入力文字にヒットする履歴を抽出（空文字の場合は全履歴表示）
+        const matches = historyArray.filter(item => 
+            !query || item.toLowerCase().includes(query)
+        );
+
+        if (matches.length === 0) {
+            listEl.style.display = 'none';
+            return;
+        }
+
+        listEl.innerHTML = matches.map(item => `
+            <div class="autocomplete-item" data-value="${escapeHTML(item)}">
+                ${escapeHTML(item)}
+            </div>
+        `).join('');
+        listEl.style.display = 'block';
+    }
+
+    // フォーカス時および入力時にリストを表示
+    inputEl.addEventListener('focus', () => renderList(inputEl.value));
+    inputEl.addEventListener('input', () => renderList(inputEl.value));
+
+    // リスト項目タップ時の処理（iPhone対策として mousedown を使用）
+    listEl.addEventListener('mousedown', (e) => {
+        const itemEl = e.target.closest('.autocomplete-item');
+        if (itemEl) {
+            inputEl.value = itemEl.dataset.value;
+            listEl.style.display = 'none';
+        }
+    });
+
+    // 枠外をタップしたらリストを閉じる
+    document.addEventListener('click', (e) => {
+        if (!inputEl.contains(e.target) && !listEl.contains(e.target)) {
+            listEl.style.display = 'none';
+        }
+    });
 }
