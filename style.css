@@ -42,6 +42,138 @@ button {
     justify-content: center;
     gap: 4px;
 }
+/* ==========================================
+   2行構成（カード型）リストスタイル
+   ========================================== */
+
+.list-item-card {
+    background-color: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    
+    /* ▼ 調整ポイント1: 上下余白を 10px -> 6px に縮小 */
+    padding: 6px 10px;
+    
+    /* ▼ 調整ポイント2: カード間の下隙間を 8px -> 4px に縮小 */
+    margin-bottom: 4px;
+    
+    display: flex;
+    flex-direction: column;
+    
+    /* ▼ 調整ポイント3: 上段（1行目）と下段（2行目）の間の隙間を 8px -> 3px に縮小 */
+    gap: 3px;
+}
+
+/* 上段・下段の行高を安定させる指定 */
+.card-row-top,
+.card-row-bottom {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    line-height: 1.2; /* 行の高さを少しキュッと締める */
+}
+
+/* ボタン周りの上下パディングが気になる場合の微調整 */
+.card-qty-control {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    background-color: #f8f9fa;
+    padding: 1px 4px; /* 上下パディングを1pxに抑制 */
+    border-radius: 4px;
+}
+
+/* 上段：メイン情報 */
+.card-main-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+}
+
+.item-title {
+    font-weight: bold;
+    font-size: 15px;
+    color: #333;
+}
+
+.item-category-tag {
+    font-size: 11px;
+    color: #666;
+    background-color: #f0f0f0;
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-left: 4px;
+}
+
+/* 上段右側：アクションボタン */
+.card-actions {
+    height: 23px;
+    line-height: 23px;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+/* 下段：詳細情報 */
+.card-sub-info {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    font-size: 12px;
+    color: #666;
+}
+
+.info-badge {
+    background-color: #f8f9fa;
+    border: 1px solid #e9ecef;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+/* 下段右側：数量操作 */
+.card-qty-control {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background-color: #f8f9fa;
+    padding: 2px 4px;
+    border-radius: 4px;
+}
+
+/* プラスマイナスボタン自体の高さと上下余白の調整 */
+.card-qty-control .btn-qty {
+    /* ▼ 高さを縮める（デフォルト: 24px 〜 28px 程度 -> 20px に縮小） */
+    height: 22px;
+    
+    /* ▼ テキスト（＋/－）を上下中央に配置するため height と同じ値に設定 */
+    line-height: 18px; 
+    
+    /* ▼ 上下の余白をゼロにする */
+    padding: 0;
+    
+    /* ▼ ボタン全体の横幅（必要に応じて調整） */
+    width: 22px;
+    
+    /* ▼ 文字サイズ（小さくした高さに合わせて微調整） */
+    font-size: 13px;
+    
+    /* 位置の微調整用 */
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* ボタン横の数字（数量）の高さも揃える場合 */
+.card-qty-control .qty-val,
+.card-qty-control .qty-num {
+    height: 20px;
+    line-height: 20px;
+    font-size: 13px;
+}
 
 .btn-blue { background-color: var(--blue); }
 .btn-red { background-color: var(--red); }
@@ -68,8 +200,8 @@ button {
 
 /* 【追加】個数変更（＋/－）や追加購入（＋）で使う共通正方形ボタン */
 .btn-square, .btn-qty-change, .btn-quick-add {
-    width: 24px;
-    height: 24px;
+    width: 22px;
+    height: 22px;
     border: 1px solid #d1d5db;
     background: #ffffff;
     color: #374151;
@@ -95,9 +227,31 @@ button {
 
 .action-buttons { display: flex; gap: 12px; margin-bottom: 16px; }
 .action-buttons button:nth-child(1) { flex: 1; }
-.action-buttons button:nth-child(2) { flex: 1; }
+.action-buttons button:nth-child(2) { flex: 2; }
 .action-buttons button:nth-child(3) { flex: 2; }
-.action-buttons button:nth-child(4) { flex: 2; }
+
+/* ==========================================
+   賞味期限の警告・期限切れスタイル（カード型対応）
+   ========================================== */
+
+/* 1. 期限切れ（赤系） */
+.list-item-card.expired {
+    background-color: #ffe6e6 !important; /* 迫った背景色を優先適用 */
+    border-color: #ffb3b3;
+}
+
+/* 2. 賞味期限が近い（黄/オレンジ系） */
+.list-item-card.warning {
+    background-color: #fff9db !important;
+    border-color: #ffe066;
+}
+
+/* 内部のバッジや子要素の背景色も馴染ませる調整（任意） */
+.list-item-card.expired .card-qty-control,
+.list-item-card.warning .card-qty-control {
+    background-color: rgba(255, 255, 255, 0.6);
+}
+
 
 /* --- リスト表示スタイル --- */
 .list-header, .list-item {
@@ -152,9 +306,6 @@ button {
     color: #6b7280;
 }
 
-/* 賞味期限アラート用の行背景色 */
-.list-item.expired { background-color: #fee2e2 !important; }
-.list-item.warning { background-color: #fef3c7 !important; }
 
 /* チェックボックス・カートアイコン */
 input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--blue); }
@@ -252,4 +403,46 @@ input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--blue); }
     display: flex;
     align-items: center;
     gap: 6px; /* ボタン同士の間隔 */
+}
+
+/* ==========================================
+   カスタムオートコンプリート（サジェスト）
+   ========================================== */
+
+.autocomplete-wrapper {
+    position: relative; /* サジェスト基準位置 */
+}
+
+.autocomplete-list {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    background-color: #ffffff;
+    border: 1px solid #ccc;
+    border-top: none;
+    border-radius: 0 0 6px 6px;
+    max-height: 180px;
+    overflow-y: auto;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.autocomplete-item {
+    padding: 10px 12px;
+    font-size: 14px;
+    color: #333;
+    cursor: pointer;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.autocomplete-item:last-child {
+    border-bottom: none;
+}
+
+/* スマホタップ時・PCホバー時のハイライト */
+.autocomplete-item:active,
+.autocomplete-item:hover {
+    background-color: #f0f4f8;
+    color: #007bff;
 }
