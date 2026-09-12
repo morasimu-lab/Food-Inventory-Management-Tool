@@ -53,17 +53,6 @@ function renderGoodsList(container, appState) {
 
     const unclassifiedItems = items.filter(i => !i.category || !categories.includes(i.category));
 
-    const renderListHeader = () => `
-        <div class="list-header">
-            <div class="col-add">追加</div>
-            <div class="col-name">品名</div>
-            <div class="col-sub">商品名（銘柄等）</div>
-            <div class="col-qty">数量</div>
-            <div class="col-cart">買</div>
-            <div class="col-check">消</div>
-        </div>
-    `;
-
     container.innerHTML = `
         <div class="action-buttons">
             <button class="btn-blue" id="btn-goto-goods-reg">＋ 登録</button>
@@ -80,7 +69,6 @@ function renderGoodsList(container, appState) {
                         <span class="accordion-arrow">▶</span>
                     </div>
                     <div class="category-content" id="cat-content-unclassified" style="display:none;">
-                        ${renderListHeader()}
                         ${unclassifiedItems.map(item => renderGoodsRow(item, historyMap)).join('')}
                     </div>
                 </div>
@@ -99,7 +87,6 @@ function renderGoodsList(container, appState) {
                             </div>
                         </div>
                         <div class="category-content" id="cat-content-${escapeHTML(cat)}" style="display:none;">
-                            ${renderListHeader()}
                             ${catItems.length === 0 
                                 ? '<div class="empty-message">このカテゴリの品はありません</div>' 
                                 : catItems.map(item => renderGoodsRow(item, historyMap)).join('')}
@@ -199,29 +186,34 @@ function renderGoodsRow(item, historyMap) {
     const quantity = item.quantity != null ? item.quantity : 0;
 
     return `
-        <div class="list-item">
-            <div class="col-add">
-                <button class="btn-quick-add btn-qty" data-name="${escapeHTML(item.name)}" title="この品名で追加登録">＋</button>
+        <div class="list-item-card">
+            <!-- 上段：品名・カテゴリ ＆ カート・追加 -->
+            <div class="card-row-top">
+                <div class="card-main-info">
+                    <input type="checkbox" class="goods-checkbox" value="${escapeHTML(item.name)}">
+                    <div class="goods-name-clickable" data-name="${escapeHTML(item.name)}" data-category="${escapeHTML(item.category || '')}">
+                        <span class="item-title">${escapeHTML(item.name)}</span>
+                        <span class="item-category-tag">📁 ${categoryDisplay}</span>
+                    </div>
+                </div>
+                <div class="card-actions">
+                    <button class="btn-cart ${item.needBuy ? 'active' : ''}" data-id="${escapeHTML(itemId)}" data-name="${escapeHTML(item.name)}">🛒</button>
+                    <button class="btn-quick-add btn-qty" data-name="${escapeHTML(item.name)}" title="この品名で追加登録">＋</button>
+                </div>
             </div>
-            <div class="col-name goods-name-clickable" data-name="${escapeHTML(item.name)}" data-category="${escapeHTML(item.category || '')}" title="クリックしてカテゴリ変更">
-                <div class="item-title">${escapeHTML(item.name)}</div>
-                <div class="item-category-tag">📁 ${categoryDisplay}</div>
-            </div>
-            <div class="col-sub">
-                ${subNames.length > 0 
-                    ? subNames.map(sub => `<span class="sub-tag">${escapeHTML(sub)}</span>`).join('') 
-                    : '<span class="text-light">なし</span>'}
-            </div>
-            <div class="col-qty">
-                <button class="btn-qty-change btn-qty" data-id="${escapeHTML(itemId)}" data-name="${escapeHTML(item.name)}" data-delta="-1">-</button>
-                <span class="qty-num">${quantity}</span>
-                <button class="btn-qty-change btn-qty" data-id="${escapeHTML(itemId)}" data-name="${escapeHTML(item.name)}" data-delta="1">+</button>
-            </div>
-            <div class="col-cart">
-                <button class="btn-cart ${item.needBuy ? 'active' : ''}" data-id="${escapeHTML(itemId)}" data-name="${escapeHTML(item.name)}">🛒</button>
-            </div>
-            <div class="col-check">
-                <input type="checkbox" class="goods-checkbox" value="${escapeHTML(item.name)}">
+
+            <!-- 下段：銘柄タグ ＆ 数量操作 -->
+            <div class="card-row-bottom">
+                <div class="card-sub-info">
+                    ${subNames.length > 0 
+                        ? subNames.map(sub => `<span class="sub-tag">${escapeHTML(sub)}</span>`).join('') 
+                        : '<span class="text-light">銘柄なし</span>'}
+                </div>
+                <div class="card-qty-control">
+                    <button class="btn-qty-change btn-qty" data-id="${escapeHTML(itemId)}" data-name="${escapeHTML(item.name)}" data-delta="-1">-</button>
+                    <span class="qty-num">${quantity}</span>
+                    <button class="btn-qty-change btn-qty" data-id="${escapeHTML(itemId)}" data-name="${escapeHTML(item.name)}" data-delta="1">+</button>
+                </div>
             </div>
         </div>
     `;
@@ -234,13 +226,14 @@ function renderGoodsRegister(container, appState, initialName = '') {
 
     container.innerHTML = `
         <button class="btn-outline mb-24" id="btn-back-goods">＜ 戻る</button>
-        <div class="form-group">
-            <label>品名</label>
-            <input type="text" id="input-goods-name" value="${escapeHTML(initialName)}" placeholder="例: シャンプー" list="goods-history" autocomplete="off">
-            <datalist id="goods-history">${historyNames.map(n => `<option value="${escapeHTML(n)}">`).join('')}</datalist>
+        <div class="form-group autocomplete-wrapper">
+            <label for="input-goods-name">品名</label>
+            <input type="text" id="input-goods-name" placeholder="例: シャンプー" autocomplete="off">
+            <!-- カスタムサジェスト表示用の枠 -->
+            <div id="goods-autocomplete-list" class="autocomplete-list" style="display: none;"></div>
         </div>
         <div class="form-group">
-            <label>個数（数量）</label>
+            <label>数量</label>
             <input type="number" id="input-goods-quantity" value="1" min="0">
         </div>
         <div class="form-group">
@@ -260,6 +253,12 @@ function renderGoodsRegister(container, appState, initialName = '') {
         </div>
         <button class="btn-blue btn-full" id="btn-submit-goods">登録する</button>
     `;
+
+    // === 初期化時の呼び出し例 ===
+    // 画面描画後に実行します
+    const goodsInput = container.querySelector('#input-goods-name');
+    const goodsList = container.querySelector('#goods-autocomplete-list');
+    setupAutocomplete(goodsInput, goodsList, historyNames);
 
     container.querySelector('#btn-back-goods').onclick = () => { 
         currentSubView = 'list'; 
@@ -352,4 +351,50 @@ async function deleteSelectedGoods(appState) {
         await updateAppState('goodsList', items);
         renderCurrentTab();
     }
+}
+
+// サジェスト制御のセットアップ関数
+function setupAutocomplete(inputEl, listEl, historyArray) {
+    if (!inputEl || !listEl) return;
+
+    // リストの描画
+    function renderList(filterText = '') {
+        const query = filterText.trim().toLowerCase();
+        // 入力文字にヒットする履歴を抽出（空文字の場合は全履歴表示）
+        const matches = historyArray.filter(item => 
+            !query || item.toLowerCase().includes(query)
+        );
+
+        if (matches.length === 0) {
+            listEl.style.display = 'none';
+            return;
+        }
+
+        listEl.innerHTML = matches.map(item => `
+            <div class="autocomplete-item" data-value="${escapeHTML(item)}">
+                ${escapeHTML(item)}
+            </div>
+        `).join('');
+        listEl.style.display = 'block';
+    }
+
+    // フォーカス時および入力時にリストを表示
+    inputEl.addEventListener('focus', () => renderList(inputEl.value));
+    inputEl.addEventListener('input', () => renderList(inputEl.value));
+
+    // リスト項目タップ時の処理（iPhone対策として mousedown を使用）
+    listEl.addEventListener('mousedown', (e) => {
+        const itemEl = e.target.closest('.autocomplete-item');
+        if (itemEl) {
+            inputEl.value = itemEl.dataset.value;
+            listEl.style.display = 'none';
+        }
+    });
+
+    // 枠外をタップしたらリストを閉じる
+    document.addEventListener('click', (e) => {
+        if (!inputEl.contains(e.target) && !listEl.contains(e.target)) {
+            listEl.style.display = 'none';
+        }
+    });
 }
