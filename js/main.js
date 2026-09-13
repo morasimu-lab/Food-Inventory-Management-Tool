@@ -22,21 +22,14 @@ let isSaving = false;
 export async function loadAllData() {
     showLoading('データを取得中...');
     try {
-        const [foodList, foodCategories, foodHistory, goodsList, goodsHistory, goodsCategories] = await Promise.all([
-            Promise.resolve(Storage.load('app_food_list')),
-            Promise.resolve(Storage.load('app_food_categories')),
-            Promise.resolve(Storage.load('app_food_history')),
-            Promise.resolve(Storage.load('app_goods_list')),
-            Promise.resolve(Storage.load('app_goods_history')),
-            Promise.resolve(Storage.load('app_goods_categories'))
-        ]);
+        const cacheData = await Storage.loadAll();
 
-        appState.foodList = Array.isArray(foodList) ? foodList : [];
-        appState.foodCategories = Array.isArray(foodCategories) ? foodCategories : [];
-        appState.foodHistory = Array.isArray(foodHistory) ? foodHistory : [];
-        appState.goodsList = Array.isArray(goodsList) ? goodsList : [];
-        appState.goodsHistory = Array.isArray(goodsHistory) ? goodsHistory : [];
-        appState.goodsCategories = Array.isArray(goodsCategories) ? goodsCategories : [];
+        appState.foodList = Array.isArray(cacheData.app_food_list) ? cacheData.app_food_list : [];
+        appState.foodCategories = Array.isArray(cacheData.app_food_categories) ? cacheData.app_food_categories : [];
+        appState.foodHistory = Array.isArray(cacheData.app_food_history) ? cacheData.app_food_history : [];
+        appState.goodsList = Array.isArray(cacheData.app_goods_list) ? cacheData.app_goods_list : [];
+        appState.goodsHistory = Array.isArray(cacheData.app_goods_history) ? cacheData.app_goods_history : [];
+        appState.goodsCategories = Array.isArray(cacheData.app_goods_categories) ? cacheData.app_goods_categories : [];
     } catch (err) {
         console.error('Failed to load app data:', err);
     } finally {
