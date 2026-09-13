@@ -5,7 +5,7 @@ import { updateAppState, renderCurrentTab } from './main.js';
 import { moveCategory, openCategoryManageModal, openChangeCategoryModal } from './categoryModal.js';
 
 let currentSubView = 'list';
-let registerInitialName = ''; // 追加購入時の品名引き継ぎ用
+let registerInitialName = ''; // 追加購入ショートカット用の品名保持
 
 window.resetGoodsSubView = () => { 
     currentSubView = 'list'; 
@@ -16,18 +16,31 @@ let openedCategoriesCache = [];
 
 function getNormalizedHistory(history) {
     if (!history) return {};
+    const map = {};
+
     if (Array.isArray(history)) {
-        const map = {};
         history.forEach(item => {
             if (typeof item === 'string') {
                 map[item] = [];
             } else if (item && item.name) {
-                map[item.name] = item.subs || [];
+                map[item.name] = Array.isArray(item.subs) ? item.subs : [];
             }
         });
-        return map;
+    } else if (typeof history === 'object') {
+        // オブジェクト形式で保存されている過去データの互換性対応
+        Object.keys(history).forEach(key => {
+            const val = history[key];
+            if (Array.isArray(val)) {
+                map[key] = val;
+            } else if (typeof val === 'string' && val) {
+                map[key] = [val]; // 文字列なら配列化
+            } else {
+                map[key] = [];
+            }
+        });
     }
-    return history;
+
+    return map;
 }
 
 export function renderGoodsTab(container, appState) {
@@ -180,10 +193,14 @@ function renderGoodsList(container, appState) {
 }
 
 function renderGoodsRow(item, historyMap) {
-    const subNames = historyMap[item.name] || [];
+    // 配列でなければ空配列または配列化して取得する（エラー防止ガード）
+    const rawSub = historyMap[item.name];
+    const subNames = Array.isArray(rawSub) 
+        ? rawSub 
+        : (typeof rawSub === 'string' && rawSub ? [rawSub] : []);
     const categoryDisplay = item.category ? escapeHTML(item.category) : '未設定';
     const itemId = item.id != null ? String(item.id) : '';
-    const quantity = item.quantity != null ? item.quantity : 0;
+    const quantity = Number(item.quantity) || 0;
 
     return `
         <div class="list-item-card">
@@ -228,13 +245,13 @@ function renderGoodsRegister(container, appState, initialName = '') {
         <button class="btn-outline mb-24" id="btn-back-goods">＜ 戻る</button>
         <div class="form-group autocomplete-wrapper">
             <label for="input-goods-name">品名</label>
-            <input type="text" id="input-goods-name" placeholder="例: シャンプー" autocomplete="off">
+            <input type="text" id="input-goods-name" value="${escapeHTML(initialName)}" placeholder="例: シャンプー" autocomplete="off">
             <!-- カスタムサジェスト表示用の枠 -->
             <div id="goods-autocomplete-list" class="autocomplete-list" style="display: none;"></div>
         </div>
         <div class="form-group">
             <label>数量</label>
-            <input type="number" id="input-goods-quantity" value="1" min="0">
+            <input type="number" id="input-goods-quantity" value="0" min="0">
         </div>
         <div class="form-group">
             <label>商品名（銘柄など / 複数の場合はカンマ区切り）</label>
