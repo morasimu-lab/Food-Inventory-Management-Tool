@@ -126,7 +126,7 @@ export const Storage = {
             console.error(`Error saving ${sheetName}:`, e);
             return false;
         }
-    }
+    },
 
     /**
      * 同期的に現在のキャッシュを取得
