@@ -1,6 +1,6 @@
 // storage.js
 
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbwSSRV9DfS1m2-UyTSqaTlaHXZzlC71vMKTiaI8MyhQ2h38qWUQkSVOXU5cCWjNzoCUwg/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbxtveMxxQIPrYoN-h3JYYRGsfthGu94TpjOvKT1eAmENj0ZlketWeSv65P0L4SqefKj/exec';
 
 const SHEET_MAP = {
     'app_food_list': 'foods',
@@ -45,7 +45,35 @@ function normalizeItem(item) {
 
 export const Storage = {
     /**
-     * キャッシュがあれば即返し、無ければGASから読み込む
+     * 初回用：1回の通信で全データを一括取得してキャッシュに展開
+     */
+    async loadAll() {
+        try {
+            const res = await fetch(`${GAS_URL}?action=all`);
+            const text = await res.text();
+
+            if (!res.ok || text.trim().startsWith('<')) {
+                throw new Error(`GAS Invalid Response: ${text.substring(0, 100)}`);
+            }
+
+            const json = JSON.parse(text);
+            if (json.status === 'success' && json.data) {
+                const data = json.data;
+                cache['app_food_list'] = (data.app_food_list || []).map(normalizeItem);
+                cache['app_food_categories'] = data.app_food_categories || [];
+                cache['app_food_history'] = data.app_food_history || [];
+                cache['app_goods_list'] = (data.app_goods_list || []).map(normalizeItem);
+                cache['app_goods_history'] = (data.app_goods_history || []).map(normalizeItem);
+                cache['app_goods_categories'] = data.app_goods_categories || [];
+            }
+        } catch (e) {
+            console.error('Error loadAll:', e);
+        }
+        return cache;
+    },
+
+    /**
+     * 個別取得用 (キャッシュがあれば即返し、無ければ個別取得)
      */
     async load(key, force = false) {
         if (!force && cache[key] !== undefined) {
@@ -57,9 +85,17 @@ export const Storage = {
 
         try {
             const res = await fetch(`${GAS_URL}?sheet=${sheetName}`);
-            const json = await res.json();
+            const text = await res.text();
+
+            if (!res.ok || text.trim().startsWith('<')) {
+                throw new Error(`GAS Invalid Response for ${sheetName}`);
+            }
+
+            const json = JSON.parse(text);
             if (json.status === 'success' && Array.isArray(json.data)) {
-                cache[key] = json.data.map(item => normalizeItem(item));
+                cache[key] = (key.includes('list') || key.includes('goods_history'))
+                    ? json.data.map(item => normalizeItem(item))
+                    : json.data;
             } else {
                 cache[key] = cache[key] || [];
             }
@@ -102,7 +138,7 @@ export const Storage = {
 // --- ローディング表示のユーティリティ ---
 let loadingEl = null;
 
-export function showLoading(message = '読み込み中...') {
+export function showLoading(message = 'オンラインDB読み込み中...') {
     if (!loadingEl) {
         loadingEl = document.createElement('div');
         loadingEl.style.cssText = `
