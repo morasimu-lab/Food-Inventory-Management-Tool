@@ -1,38 +1,32 @@
-import { Storage, escapeHTML } from './storage.js';
-import { renderFoodTab } from './food.js';
-import { renderGoodsTab } from './goods.js';
+// categoryModal.js
+import { escapeHTML } from './storage.js';
+import { appState, updateAppState, renderCurrentTab } from './main.js';
 
-// カテゴリの順序変更処理
-export function moveCategory(type, index, dir, container) {
-    const key = type === 'food' ? 'FOOD_CATEGORIES' : 'GOODS_CATEGORIES';
-    let categories = Storage.load(key) || [];
+export async function moveCategory(type, index, dir) {
+    const catKey = type === 'food' ? 'foodCategories' : 'goodsCategories';
+    let categories = [...appState[catKey]];
     
     const targetIndex = dir === 'up' ? index - 1 : index + 1;
     if (targetIndex < 0 || targetIndex >= categories.length) return;
 
-    // 配列の要素を入れ替え
     const temp = categories[index];
     categories[index] = categories[targetIndex];
     categories[targetIndex] = temp;
 
-    Storage.save(key, categories);
-    
-    if (type === 'food') {
-        renderFoodTab(container);
-    } else {
-        renderGoodsTab(container);
-    }
+    await updateAppState(catKey, categories);
+    renderCurrentTab();
 }
 
-// カテゴリ追加・削除の管理モーダル
-export function openCategoryManageModal(type, container) {
-    const key = type === 'food' ? 'FOOD_CATEGORIES' : 'GOODS_CATEGORIES';
-    let categories = Storage.load(key) || [];
+export async function openCategoryManageModal(type) {
+    const catKey = type === 'food' ? 'foodCategories' : 'goodsCategories';
+    const listKey = type === 'food' ? 'foodList' : 'goodsList';
 
     const modalBg = document.createElement('div');
     modalBg.style.cssText = "position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; z-index:1000;";
     
     const renderModalContent = () => {
+        const categories = appState[catKey] || [];
+
         modalBg.innerHTML = `
             <div style="background:white; padding:20px; border-radius:12px; width:90%; max-width:400px; max-height:80vh; overflow-y:auto;">
                 <h3 style="margin-bottom:16px;">カテゴリの管理</h3>
@@ -55,39 +49,37 @@ export function openCategoryManageModal(type, container) {
 
         modalBg.querySelector('#modal-close').onclick = () => {
             document.body.removeChild(modalBg);
-            if (type === 'food') renderFoodTab(container);
-            else renderGoodsTab(container);
+            renderCurrentTab();
         };
 
-        modalBg.querySelector('#btn-add-cat').onclick = () => {
+        modalBg.querySelector('#btn-add-cat').onclick = async () => {
             const input = modalBg.querySelector('#new-cat-name');
             const name = input.value.trim();
             if (!name) return;
-            if (categories.includes(name)) {
-                alert('すでに存在するカテゴリ名です。');
-                return;
-            }
-            categories.push(name);
-            Storage.save(key, categories);
-            input.value = '';
+            if (categories.includes(name)) return alert('すでに存在するカテゴリ名です。');
+            
+            const updatedCategories = [...categories, name];
+            await updateAppState(catKey, updatedCategories);
             renderModalContent();
         };
 
         modalBg.querySelectorAll('.btn-delete-cat-item').forEach(btn => {
-            btn.onclick = () => {
+            btn.onclick = async () => {
                 const idx = parseInt(btn.getAttribute('data-index'));
                 const deletedCat = categories[idx];
-                if (confirm(`カテゴリ「${deletedCat}」を削除しますか？（所属していた品目は自動で未分類になります）`)) {
-                    categories.splice(idx, 1);
-                    Storage.save(key, categories);
+                if (confirm(`カテゴリ「${deletedCat}」を削除しますか？`)) {
+                    // カテゴリリストの更新
+                    const updatedCategories = categories.filter((_, i) => i !== idx);
+                    await updateAppState(catKey, updatedCategories);
 
-                    // 該当カテゴリに属していたアイテムのカテゴリをnullにクリア
-                    const itemKey = type === 'food' ? 'FOOD_LIST' : 'GOODS_LIST';
-                    let items = Storage.load(itemKey) || [];
-                    items.forEach(i => {
-                        if (i.category === deletedCat) i.category = null;
+                    // 該当するアイテムのカテゴリ判定解除
+                    const updatedItems = appState[listKey].map(item => {
+                        if (item.category === deletedCat) {
+                            return { ...item, category: null };
+                        }
+                        return item;
                     });
-                    Storage.save(itemKey, items);
+                    await updateAppState(listKey, updatedItems);
 
                     renderModalContent();
                 }
@@ -99,11 +91,11 @@ export function openCategoryManageModal(type, container) {
     renderModalContent();
 }
 
-// アイテムのカテゴリ変更
-export function openChangeCategoryModal(targetKey, currentCategory, type, container) {
-    const key = type === 'food' ? 'FOOD_CATEGORIES' : 'GOODS_CATEGORIES';
-    const listKey = type === 'food' ? 'FOOD_LIST' : 'GOODS_LIST';
-    const categories = Storage.load(key) || [];
+export async function openChangeCategoryModal(targetKey, currentCategory, type) {
+    const catKey = type === 'food' ? 'foodCategories' : 'goodsCategories';
+    const listKey = type === 'food' ? 'foodList' : 'goodsList';
+    
+    const categories = appState[catKey] || [];
 
     const modalBg = document.createElement('div');
     modalBg.style.cssText = "position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); display:flex; align-items:center; justify-content:center; z-index:1000;";
@@ -122,25 +114,24 @@ export function openChangeCategoryModal(targetKey, currentCategory, type, contai
     `;
 
     document.body.appendChild(modalBg);
-
     modalBg.querySelector('#modal-cancel').onclick = () => document.body.removeChild(modalBg);
 
     modalBg.querySelectorAll('.cat-select-option').forEach(btn => {
-        btn.onclick = () => {
+        btn.onclick = async () => {
             const newCat = btn.getAttribute('data-cat') || null;
             
-            let items = Storage.load(listKey) || [];
-            // 食品は id、日用品は name で判定
-            let item = items.find(i => (type === 'food' ? i.id === targetKey : i.name === targetKey));
-            if (item) {
-                item.category = newCat;
-                Storage.save(listKey, items);
-            }
+            const updatedItems = appState[listKey].map(item => {
+                const isMatch = type === 'food' ? String(item.id) === String(targetKey) : item.name === targetKey;
+                if (isMatch) {
+                    return { ...item, category: newCat };
+                }
+                return item;
+            });
+
+            await updateAppState(listKey, updatedItems);
 
             document.body.removeChild(modalBg);
-            
-            if (type === 'food') renderFoodTab(container);
-            else renderGoodsTab(container);
+            renderCurrentTab();
         };
     });
 }
