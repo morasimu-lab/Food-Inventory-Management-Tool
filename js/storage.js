@@ -116,16 +116,17 @@ export const Storage = {
         if (!sheetName) return false;
 
         try {
-            fetch(GAS_URL, {
+            // ★ await を追加して通信完了まで待機させる
+            const res = await fetch(GAS_URL, {
                 method: 'POST',
                 body: JSON.stringify({ sheet: sheetName, items: data })
-            }).catch(err => console.error(`Background save failed for ${sheetName}:`, err));
-            return true;
+            });
+            return res.ok;
         } catch (e) {
             console.error(`Error saving ${sheetName}:`, e);
             return false;
         }
-    },
+    }
 
     /**
      * 同期的に現在のキャッシュを取得
