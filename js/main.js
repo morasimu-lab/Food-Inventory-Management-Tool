@@ -17,6 +17,7 @@ export const appState = {
 
 // 保存中フラグ
 let isSaving = false;
+let pendingSaveKeys = new Set(); // 保存待ちのキーを保持
 
 // DB/Storage から全データを非同期一括取得（ローディング画面を適用）
 export async function loadAllData() {
