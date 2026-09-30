@@ -1,0 +1,18 @@
+Plaintext
+User-agent: *
+Disallow: /
+
+User-agent: GPTBot
+Disallow: /
+
+User-agent: ChatGPT-User
+Disallow: /
+
+User-agent: ClaudeBot
+Disallow: /
+
+User-agent: AnthropicAI
+Disallow: /
+
+User-agent: Bytespider
+Disallow: /
